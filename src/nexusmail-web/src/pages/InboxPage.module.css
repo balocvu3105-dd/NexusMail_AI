@@ -1,0 +1,249 @@
+.inboxContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-primary);
+}
+
+.header {
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.filters {
+  display: flex;
+  gap: var(--spacing-lg);
+}
+
+.filterTab {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding-bottom: var(--spacing-sm);
+}
+
+.filterTab.active {
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--brand);
+}
+
+.emailList {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.emailCard {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.emailCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--brand);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sender {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.05em;
+}
+
+.badgeHigh {
+  background-color: var(--priority-high-bg);
+  color: var(--priority-high);
+}
+
+.badgeMedium {
+  background-color: var(--priority-medium-bg);
+  color: var(--priority-medium);
+}
+
+.badgeLow {
+  background-color: var(--priority-low-bg);
+  color: var(--priority-low);
+}
+
+.subject {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.aiSection {
+  background-color: var(--bg-hover);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.aiHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--ai-brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.aiSummary {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.aiProcessing {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.aiTags {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+}
+
+.tag {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.actionBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.actionBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.actionBtn.primary {
+  color: var(--brand);
+}
+
+.actionBtn.primary:hover {
+  color: var(--brand-hover);
+}
+
+.time {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+
+/* States Container */
+.centerContainer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--text-secondary);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.errorIcon {
+  color: var(--priority-high);
+}
+
+.errorTitle {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+}
+
+.errorMessage {
+  max-width: 400px;
+  text-align: center;
+}
+
+.retryBtn {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(--brand);
+  color: white;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+}
+
+.retryBtn:hover {
+  background-color: var(--brand-hover);
+}
+
+.emptyIcon {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}

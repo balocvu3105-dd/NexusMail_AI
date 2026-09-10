@@ -1,0 +1,33 @@
+<Solution>
+  <!-- Core -->
+  <Project Path="NexusMail.Common/NexusMail.Common.csproj" />
+  <Project Path="NexusMail.Contracts/NexusMail.Contracts.csproj" />
+  <Project Path="NexusMail.Events/NexusMail.Events.csproj" />
+  <Project Path="NexusMail.Shared/NexusMail.Shared.csproj" />
+
+  <!-- Domain + Application -->
+  <Project Path="NexusMail.Domain/NexusMail.Domain.csproj" />
+  <Project Path="NexusMail.Application/NexusMail.Application.csproj" />
+
+  <!-- Infrastructure -->
+  <Project Path="NexusMail.Infrastructure/NexusMail.Infrastructure.csproj" />
+  <Project Path="../tests/NexusMail.Tests.AI/NexusMail.Tests.AI.csproj" />
+  <Project Path="../tests/NexusMail.Tests.Search/NexusMail.Tests.Search.csproj" />
+  <Project Path="NexusMail.AI/NexusMail.AI.csproj" />
+  <Project Path="NexusMail.Automation/NexusMail.Automation.csproj" />
+  <Project Path="NexusMail.Search/NexusMail.Search.csproj" />
+  <Project Path="NexusMail.Notification/NexusMail.Notification.csproj" />
+
+  <!-- Event Handling -->
+  <Project Path="NexusMail.EventHandlers/NexusMail.EventHandlers.csproj" />
+
+  <!-- API -->
+  <Project Path="NexusMail.API/NexusMail.API.csproj" />
+
+  <!-- Workers -->
+  <Project Path="NexusMail.Worker.AI/NexusMail.Worker.AI.csproj" />
+  <Project Path="NexusMail.Worker.Automation/NexusMail.Worker.Automation.csproj" />
+  <Project Path="NexusMail.Worker.EmailSync/NexusMail.Worker.EmailSync.csproj" />
+  <Project Path="NexusMail.Worker.Notification/NexusMail.Worker.Notification.csproj" />
+  <Project Path="NexusMail.Worker.Search/NexusMail.Worker.Search.csproj" />
+</Solution>

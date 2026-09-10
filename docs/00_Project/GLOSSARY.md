@@ -1,0 +1,3 @@
+﻿# GLOSSARY.md
+
+> Placeholder

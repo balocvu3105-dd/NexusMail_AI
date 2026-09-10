@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-NexusMail.Worker.Search-41afdd92-4c01-4e06-882d-d4fbeed8d9eb</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.3.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
+    <ProjectReference Include="..\NexusMail.Infrastructure\NexusMail.Infrastructure.csproj" />
+    <ProjectReference Include="..\NexusMail.Contracts\NexusMail.Contracts.csproj" />
+    <ProjectReference Include="..\NexusMail.Search\NexusMail.Search.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!--
+      NexusMail.Search — Search infrastructure.
+      Consumes IndexEmailMessage from NexusMail.Contracts (NOT Application directly).
+      Implements ISearchIndexer + ISearchEngine from Application.Abstractions.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
+    <ProjectReference Include="..\NexusMail.Contracts\NexusMail.Contracts.csproj" />
+    <ProjectReference Include="..\NexusMail.Infrastructure\NexusMail.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Pgvector" Version="0.3.2" />
+    <!-- Sprint 6: Add Qdrant.Client NuGet for vector search -->
+  </ItemGroup>
+
+</Project>

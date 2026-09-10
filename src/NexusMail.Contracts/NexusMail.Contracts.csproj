@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!--
+      NexusMail.Contracts — Shared message contracts between API and Workers.
+      RULE: No references to Domain, Application, or Infrastructure.
+      These contracts can be extracted to NuGet packages for microservices later.
+    -->
+  </PropertyGroup>
+
+</Project>

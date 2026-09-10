@@ -1,0 +1,3 @@
+﻿# TERMINOLOGY.md
+
+> Placeholder

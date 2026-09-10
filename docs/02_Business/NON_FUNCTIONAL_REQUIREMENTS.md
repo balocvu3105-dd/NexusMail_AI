@@ -1,0 +1,3 @@
+﻿# NON_FUNCTIONAL_REQUIREMENTS.md
+
+> Placeholder

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!--
+      NexusMail.EventHandlers — Centralizes ALL integration event handlers.
+      Handlers translate Domain Events → Integration Events → publish to message bus.
+      
+      RULE: No API concerns (no HTTP, no controllers).
+      RULE: Each handler has a single responsibility.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
+    <ProjectReference Include="..\NexusMail.Events\NexusMail.Events.csproj" />
+    <ProjectReference Include="..\NexusMail.Contracts\NexusMail.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="MassTransit.Abstractions" Version="8.3.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

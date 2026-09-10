@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);NU1605</NoWarn>
+    <UserSecretsId>24ccf2e1-aaf8-45b9-a323-387a9bd27104</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Asp.Versioning.Http" Version="10.0.1" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="10.0.1" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="8.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
+    <ProjectReference Include="..\NexusMail.Infrastructure\NexusMail.Infrastructure.csproj" />
+    <ProjectReference Include="..\NexusMail.EventHandlers\NexusMail.EventHandlers.csproj" />
+    <ProjectReference Include="..\NexusMail.Search\NexusMail.Search.csproj" />
+  </ItemGroup>
+
+</Project>

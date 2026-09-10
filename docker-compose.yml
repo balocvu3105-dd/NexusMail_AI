@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: nexusmail_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: nexusmail
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: nexusmail_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus
+    container_name: nexusmail_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  grafana:
+    image: grafana/grafana
+    container_name: nexusmail_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:8.0
+    container_name: nexusmail_aspire_dashboard
+    ports:
+      - "18888:18888" # Dashboard UI
+      - "4317:4317"   # OTLP gRPC
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        PROJECT_PATH: src/NexusMail.API/NexusMail.API.csproj
+        DLL_NAME: NexusMail.API.dll
+    container_name: nexusmail_api
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__Database=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+      - OpenTelemetry__Endpoint=http://aspire-dashboard:4317
+      - FeatureFlags__AiEnabled=true
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES}
+      - JwtSettings__RefreshTokenExpirationDays=${JWT_REFRESH_TOKEN_EXPIRATION_DAYS}
+      - GoogleOAuth__ClientId=${GOOGLE_OAUTH_CLIENT_ID}
+      - GoogleOAuth__ClientSecret=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - GoogleOAuth__RedirectUri=${GOOGLE_OAUTH_REDIRECT_URI}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        PROJECT_PATH: src/NexusMail.Worker.AI/NexusMail.Worker.AI.csproj
+        DLL_NAME: NexusMail.Worker.AI.dll
+    container_name: nexusmail_worker_ai
+    environment:
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+      - OpenTelemetry__Endpoint=http://aspire-dashboard:4317
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES}
+      - JwtSettings__RefreshTokenExpirationDays=${JWT_REFRESH_TOKEN_EXPIRATION_DAYS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  worker-automation:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        PROJECT_PATH: src/NexusMail.Worker.Automation/NexusMail.Worker.Automation.csproj
+        DLL_NAME: NexusMail.Worker.Automation.dll
+    container_name: nexusmail_worker_automation
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__Database=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+      - OpenTelemetry__Endpoint=http://aspire-dashboard:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker-emailsync:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        PROJECT_PATH: src/NexusMail.Worker.EmailSync/NexusMail.Worker.EmailSync.csproj
+        DLL_NAME: NexusMail.Worker.EmailSync.dll
+    container_name: nexusmail_worker_emailsync
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__Database=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+      - OpenTelemetry__Endpoint=http://aspire-dashboard:4317
+      - JwtSettings__Secret=${JWT_SECRET}
+      - JwtSettings__Issuer=${JWT_ISSUER}
+      - JwtSettings__Audience=${JWT_AUDIENCE}
+      - JwtSettings__ExpirationMinutes=${JWT_EXPIRATION_MINUTES}
+      - JwtSettings__RefreshTokenExpirationDays=${JWT_REFRESH_TOKEN_EXPIRATION_DAYS}
+      - GoogleOAuth__ClientId=${GOOGLE_OAUTH_CLIENT_ID}
+      - GoogleOAuth__ClientSecret=${GOOGLE_OAUTH_CLIENT_SECRET}
+      - GoogleOAuth__RedirectUri=${GOOGLE_OAUTH_REDIRECT_URI}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  worker-search:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        PROJECT_PATH: src/NexusMail.Worker.Search/NexusMail.Worker.Search.csproj
+        DLL_NAME: NexusMail.Worker.Search.dll
+    container_name: nexusmail_worker_search
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__Database=Host=postgres;Database=nexusmail;Username=postgres;Password=password
+      - ConnectionStrings__RabbitMq=amqp://guest:guest@rabbitmq:5672
+      - OpenTelemetry__Endpoint=http://aspire-dashboard:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!--
+      NexusMail.Events — Defines event abstractions and separates:
+        - Domain Events (within bounded context, handled in-process via MediatR)
+        - Integration Events (cross-service, published to message bus)
+      References: NexusMail.Contracts only. No Application, no Domain.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexusMail.Contracts\NexusMail.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

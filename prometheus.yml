@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'nexusmail_api'
+    static_configs:
+      - targets: ['api:8080']
+
+  - job_name: 'nexusmail_worker_ai'
+    static_configs:
+      - targets: ['worker-ai:8080']
+
+  - job_name: 'nexusmail_worker_automation'
+    static_configs:
+      - targets: ['worker-automation:8080']
+
+  - job_name: 'nexusmail_worker_emailsync'
+    static_configs:
+      - targets: ['worker-emailsync:8080']
+
+  - job_name: 'nexusmail_worker_search'
+    static_configs:
+      - targets: ['worker-search:8080']

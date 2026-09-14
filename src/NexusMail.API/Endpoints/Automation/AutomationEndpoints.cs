@@ -67,22 +67,23 @@ public static class AutomationEndpoints
                 request.Name,
                 request.ConditionsJson,
                 request.ActionsJson,
+                request.ExpectedRuleVersion,
                 request.Description
             );
             var result = await mediator.Send(command);
             return result.IsSuccess ? Results.NoContent() : result.ToProblemDetails();
         });
 
-        group.MapPost("rules/{id:guid}/enable", async (Guid id, IMediator mediator, IWorkspaceContext context) =>
+        group.MapPost("rules/{id:guid}/enable", async (Guid id, [FromBody] ChangeStateRequest request, IMediator mediator, IWorkspaceContext context) =>
         {
-            var command = new EnableAutomationCommand(id, context.WorkspaceId!.Value);
+            var command = new EnableAutomationCommand(id, context.WorkspaceId!.Value, request.ExpectedRuleVersion);
             var result = await mediator.Send(command);
             return result.IsSuccess ? Results.NoContent() : result.ToProblemDetails();
         });
 
-        group.MapPost("rules/{id:guid}/disable", async (Guid id, IMediator mediator, IWorkspaceContext context) =>
+        group.MapPost("rules/{id:guid}/disable", async (Guid id, [FromBody] ChangeStateRequest request, IMediator mediator, IWorkspaceContext context) =>
         {
-            var command = new DisableAutomationCommand(id, context.WorkspaceId!.Value);
+            var command = new DisableAutomationCommand(id, context.WorkspaceId!.Value, request.ExpectedRuleVersion);
             var result = await mediator.Send(command);
             return result.IsSuccess ? Results.NoContent() : result.ToProblemDetails();
         });
@@ -144,6 +145,9 @@ public static class AutomationEndpoints
         string Name,
         string ConditionsJson,
         string ActionsJson,
+        int ExpectedRuleVersion,
         string? Description
     );
+
+    public record ChangeStateRequest(int ExpectedRuleVersion);
 }

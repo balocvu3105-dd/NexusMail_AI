@@ -65,4 +65,4 @@ builder.Services.AddMassTransit(x =>
 
 var host = builder.Build();
 host.Run();
-class WorkerAutomationStubEmailProvider : NexusMail.Application.Abstractions.Email.IEmailProvider { public Task SendEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default) => Task.CompletedTask; }
+class WorkerAutomationStubEmailProvider : NexusMail.Application.Abstractions.Email.IEmailProvider { public Task SendEmailAsync(string to, string subject, string body, string? idempotencyKey = null, CancellationToken cancellationToken = default) => Task.CompletedTask; }

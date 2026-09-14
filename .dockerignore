@@ -1,0 +1,43 @@
+# Dotnet build artifacts
+**/bin/
+**/obj/
+
+# Git
+.git/
+.github/
+
+# Logs (không copy log files vào build context)
+*.log
+*.log.*
+
+# Tests
+tests/
+**/*.Tests/
+
+# Frontend (không cần trong .NET service build)
+src/frontend/
+src/nexusmail-web/
+**/node_modules/
+
+# IDE / OS artifacts
+.vs/
+.vscode/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+
+# Docker artifacts (tránh circular copy)
+docker/
+deployment/
+docs/
+
+# Scratch / temp
+scratch.*
+login_response.json
+seed.sql
+prometheus.yml
+
+# Environment files (dùng docker-compose env, không copy vào image)
+.env
+.env.*

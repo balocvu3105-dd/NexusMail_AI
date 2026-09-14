@@ -1,9 +1,9 @@
 using MassTransit;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using NexusMail.Contracts.AI;
 using NexusMail.Contracts.Automation;
-using NexusMail.Contracts.Search;
 using NexusMail.Domain.Email.Events;
 
 namespace NexusMail.EventHandlers.Email;
@@ -24,13 +24,16 @@ namespace NexusMail.EventHandlers.Email;
 public sealed class EmailReceivedDomainEventHandler : INotificationHandler<EmailReceived>
 {
     private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<EmailReceivedDomainEventHandler> _logger;
 
     public EmailReceivedDomainEventHandler(
         IPublishEndpoint publishEndpoint,
+        IConfiguration configuration,
         ILogger<EmailReceivedDomainEventHandler> logger)
     {
         _publishEndpoint = publishEndpoint;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -40,29 +43,36 @@ public sealed class EmailReceivedDomainEventHandler : INotificationHandler<Email
             "EmailReceived domain event — EmailId: {EmailId}, AccountId: {AccountId}",
             notification.EmailId, notification.AccountId);
 
-        // 1. Fan out to AI Worker (Split into multiple jobs)
-        await Task.WhenAll(
-            _publishEndpoint.Publish(new SummaryRequestedMessage
-            {
-                EmailId = notification.EmailId,
-                WorkspaceId = notification.WorkspaceId
-            }, cancellationToken),
-            _publishEndpoint.Publish(new PriorityRequestedMessage
-            {
-                EmailId = notification.EmailId,
-                WorkspaceId = notification.WorkspaceId
-            }, cancellationToken),
-            _publishEndpoint.Publish(new ClassificationRequestedMessage
-            {
-                EmailId = notification.EmailId,
-                WorkspaceId = notification.WorkspaceId
-            }, cancellationToken),
-            _publishEndpoint.Publish(new EmbeddingRequestedMessage
-            {
-                EmailId = notification.EmailId,
-                WorkspaceId = notification.WorkspaceId
-            }, cancellationToken)
-        );
+        // Check Processing Gate
+        var cutoffString = _configuration["AI:ProcessingGateCutoffDate"];
+        DateTimeOffset cutoffDate = DateTimeOffset.MinValue;
+        if (!string.IsNullOrWhiteSpace(cutoffString) && DateTimeOffset.TryParse(cutoffString, out var parsed))
+        {
+            cutoffDate = parsed.ToUniversalTime();
+        }
+
+        bool isLiveEmail = notification.ReceivedAt >= cutoffDate;
+
+        if (isLiveEmail)
+        {
+            // 1. Fan out to AI Worker (One-call architecture + Embedding)
+            await Task.WhenAll(
+                _publishEndpoint.Publish(new AIProcessingRequestedMessage
+                {
+                    EmailId = notification.EmailId,
+                    WorkspaceId = notification.WorkspaceId
+                }, cancellationToken),
+                _publishEndpoint.Publish(new EmbeddingRequestedMessage
+                {
+                    EmailId = notification.EmailId,
+                    WorkspaceId = notification.WorkspaceId
+                }, cancellationToken)
+            );
+        }
+        else
+        {
+            _logger.LogInformation("Skipping AI processing for EmailId: {EmailId}. ReceivedAt {ReceivedAt} is before cutoff {CutoffDate}", notification.EmailId, notification.ReceivedAt, cutoffDate);
+        }
 
         // 2. Fan out to Automation Worker
         await _publishEndpoint.Publish(new EvaluateRulesMessage

@@ -9,21 +9,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using FluentAssertions;
-using NexusMail.Application.Features.AI.Commands.GenerateSummary;
-using NexusMail.Application.Features.AI.Commands.CategorizeEmail;
-using NexusMail.Application.Features.AI.Commands.ScorePriority;
-using NexusMail.Application.Features.AI.Commands.GenerateEmbedding;
-using NexusMail.Contracts.AI;
 using NexusMail.Contracts.Automation;
 using NexusMail.Domain.AI.Entities;
 using NexusMail.Domain.AI.Enums;
 using NexusMail.Domain.Automation.Entities;
 using NexusMail.Domain.Automation.Enums;
 using NexusMail.IntegrationTests.Infrastructure;
-using MediatR;
 using Moq;
 using NexusMail.Application.Abstractions.AI;
-using NexusMail.Shared.Domain;
 
 namespace NexusMail.IntegrationTests.Automation;
 
@@ -32,18 +25,10 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
 {
     private readonly CustomWebApplicationFactory<NexusMail.API.ApiMarker> _factory;
     private NexusMail.Infrastructure.Persistence.ApplicationDbContext _dbContext = null!;
-    private readonly Mock<ISummaryService> _summaryServiceMock;
-    private readonly Mock<IClassificationService> _classificationServiceMock;
-    private readonly Mock<IPriorityService> _priorityServiceMock;
-    private readonly Mock<IEmbeddingService> _embeddingServiceMock;
 
     public Step30_AutomationIntegrationTests(CustomWebApplicationFactory<NexusMail.API.ApiMarker> factory)
     {
         _factory = factory;
-        _summaryServiceMock = new Mock<ISummaryService>();
-        _classificationServiceMock = new Mock<IClassificationService>();
-        _priorityServiceMock = new Mock<IPriorityService>();
-        _embeddingServiceMock = new Mock<IEmbeddingService>();
     }
 
     public async Task InitializeAsync()
@@ -55,24 +40,9 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         _dbContext.AutomationExecutions.RemoveRange(_dbContext.AutomationExecutions);
         _dbContext.Set<AIAnalysis>().RemoveRange(_dbContext.Set<AIAnalysis>());
         await _dbContext.SaveChangesAsync();
-
-        // Inject mocks for AI services for deterministic results
-        // Wait, CustomWebApplicationFactory is global. We shouldn't replace its services during InitializeAsync if it's reused.
-        // We can just rely on the existing mocks, or if they are not registered, we register them.
-        // Actually, CustomWebApplicationFactory might not have these mocks. Let's see if we can just test the Domain Event generation directly 
-        // by executing the Application commands (they might use real services if not mocked, but we don't have API keys in tests so they would fail).
-        // Let's create a custom scope with overwritten services.
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
-
-    private IServiceProvider CreateTestScope()
-    {
-        var scope = _factory.Services.CreateScope();
-        // Since we cannot easily replace scoped services after the container is built without a nested container or child scope configuration,
-        // we will manually instantiate the Handlers or just manipulate the AIAnalysis entity directly to test the Domain Logic and Outbox.
-        return scope.ServiceProvider;
-    }
 
     private async Task<(Guid workspaceId, Guid accountId, Guid emailId)> SeedEmailAsync()
     {
@@ -95,27 +65,22 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         _dbContext.Set<AIAnalysis>().Add(analysis);
         await _dbContext.SaveChangesAsync();
 
-        analysis.StartSummary(Guid.NewGuid());
-        analysis.CompleteSummary(analysis.SummaryAttemptId!.Value, "Summary");
+        var processingAttemptId = Guid.NewGuid();
+        analysis.StartProcessing(processingAttemptId);
+        analysis.CompleteProcessing(processingAttemptId, "Summary", 90, "High", "Invoice", 0.99, new List<string> { "tag1" }, false);
         await _dbContext.SaveChangesAsync();
 
         // Check if event was published
         analysis.IsCompletedEventPublished.Should().BeFalse();
-        analysis.DomainEvents.Should().BeEmpty(); // Since SaveChangesAsync clears them via interceptor. Wait, Outbox messages would be created.
         var outboxMessages = await _dbContext.Set<NexusMail.Application.Abstractions.Outbox.OutboxMessage>()
             .Where(m => m.Content.Contains(emailId.ToString()))
             .ToListAsync();
         outboxMessages.Should().NotContain(m => m.Type.Contains("EmailAIProcessingCompleted"));
 
-        // Complete the rest
-        analysis.StartPriority(Guid.NewGuid());
-        analysis.CompletePriority(analysis.PriorityAttemptId!.Value, 90, "High");
-        
-        analysis.StartClassification(Guid.NewGuid());
-        analysis.CompleteClassification(analysis.ClassificationAttemptId!.Value, "Invoice", 0.99);
-
-        analysis.StartEmbedding(Guid.NewGuid());
-        analysis.CompleteEmbedding(analysis.EmbeddingAttemptId!.Value);
+        // Complete the embedding
+        var embeddingAttemptId = Guid.NewGuid();
+        analysis.StartEmbedding(embeddingAttemptId);
+        analysis.CompleteEmbedding(embeddingAttemptId);
 
         await _dbContext.SaveChangesAsync();
 
@@ -136,18 +101,14 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         _dbContext.Set<AIAnalysis>().Add(analysis);
         await _dbContext.SaveChangesAsync();
 
-        // 3 capabilities succeed, 1 fails
-        analysis.StartSummary(Guid.NewGuid());
-        analysis.CompleteSummary(analysis.SummaryAttemptId!.Value, "Summary");
+        // Processing fails, Embedding succeeds
+        var processingAttemptId = Guid.NewGuid();
+        analysis.StartProcessing(processingAttemptId);
+        analysis.FailProcessing(processingAttemptId, "API Error");
 
-        analysis.StartPriority(Guid.NewGuid());
-        analysis.CompletePriority(analysis.PriorityAttemptId!.Value, 90, "High");
-        
-        analysis.StartClassification(Guid.NewGuid());
-        analysis.FailClassification(analysis.ClassificationAttemptId!.Value, "API Error");
-
-        analysis.StartEmbedding(Guid.NewGuid());
-        analysis.CompleteEmbedding(analysis.EmbeddingAttemptId!.Value);
+        var embeddingAttemptId = Guid.NewGuid();
+        analysis.StartEmbedding(embeddingAttemptId);
+        analysis.CompleteEmbedding(embeddingAttemptId);
 
         await _dbContext.SaveChangesAsync();
 
@@ -162,8 +123,9 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         
         var payload = System.Text.Json.JsonSerializer.Deserialize<NexusMail.Domain.AI.Events.EmailAIProcessingCompleted>(outboxMsg!.Content, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         
-        payload!.SummarySucceeded.Should().BeTrue();
+        payload!.SummarySucceeded.Should().BeFalse();
         payload.ClassificationSucceeded.Should().BeFalse();
+        payload.EmbeddingSucceeded.Should().BeTrue();
         payload.Category.Should().BeNull(); // Unavailable due to failure
     }
 
@@ -174,10 +136,10 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         var analysis = AIAnalysis.Create(emailId);
         _dbContext.Set<AIAnalysis>().Add(analysis);
         
-        analysis.StartSummary(Guid.NewGuid());
-        analysis.CompleteSummary(analysis.SummaryAttemptId!.Value, "Sum");
-        analysis.StartPriority(Guid.NewGuid());
-        analysis.CompletePriority(analysis.PriorityAttemptId!.Value, 10, "Low");
+        var processingAttemptId = Guid.NewGuid();
+        analysis.StartProcessing(processingAttemptId);
+        var embeddingAttemptId = Guid.NewGuid();
+        analysis.StartEmbedding(embeddingAttemptId);
         
         await _dbContext.SaveChangesAsync();
 
@@ -190,8 +152,7 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
             var db = scope.ServiceProvider.GetRequiredService<NexusMail.Infrastructure.Persistence.ApplicationDbContext>();
             var agg = await db.Set<AIAnalysis>().FirstAsync(a => a.EmailId == emailId);
             
-            agg.StartClassification(Guid.NewGuid());
-            agg.CompleteClassification(agg.ClassificationAttemptId!.Value, "Cat", 1);
+            agg.CompleteProcessing(processingAttemptId, "Sum", 10, "Low", "Cat", 1, null, false);
             
             barrier.SignalAndWait(TimeSpan.FromSeconds(5));
             try { await db.SaveChangesAsync(); return true; } catch (DbUpdateConcurrencyException) { return false; }
@@ -203,8 +164,7 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
             var db = scope.ServiceProvider.GetRequiredService<NexusMail.Infrastructure.Persistence.ApplicationDbContext>();
             var agg = await db.Set<AIAnalysis>().FirstAsync(a => a.EmailId == emailId);
             
-            agg.StartEmbedding(Guid.NewGuid());
-            agg.CompleteEmbedding(agg.EmbeddingAttemptId!.Value);
+            agg.CompleteEmbedding(embeddingAttemptId);
             
             barrier.SignalAndWait(TimeSpan.FromSeconds(5));
             try { await db.SaveChangesAsync(); return true; } catch (DbUpdateConcurrencyException) { return false; }
@@ -212,21 +172,18 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
 
         await Task.WhenAll(task1, task2);
 
-        // One of them should fail due to xmin concurrency token.
-        // We will just do a final read and ensure they are both done (the failed one would theoretically retry in a real scenario).
-        // Wait, if it fails, it didn't save. Let's just manually apply it.
+        // One of them should fail due to concurrency token.
+        // We will just do a final read and ensure they are both done.
         var finalDb = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<NexusMail.Infrastructure.Persistence.ApplicationDbContext>();
         var finalAgg = await finalDb.Set<AIAnalysis>().FirstAsync(a => a.EmailId == emailId);
         
-        if (finalAgg.ClassificationStatus != AIProcessingStatus.Succeeded)
+        if (finalAgg.ProcessingState != AIProcessingStatus.Succeeded)
         {
-            finalAgg.StartClassification(Guid.NewGuid());
-            finalAgg.CompleteClassification(finalAgg.ClassificationAttemptId!.Value, "Cat", 1);
+            finalAgg.CompleteProcessing(processingAttemptId, "Sum", 10, "Low", "Cat", 1, null, false);
         }
         if (finalAgg.EmbeddingStatus != AIProcessingStatus.Succeeded)
         {
-            finalAgg.StartEmbedding(Guid.NewGuid());
-            finalAgg.CompleteEmbedding(finalAgg.EmbeddingAttemptId!.Value);
+            finalAgg.CompleteEmbedding(embeddingAttemptId);
         }
         await finalDb.SaveChangesAsync();
 
@@ -235,7 +192,7 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
             .Where(m => m.Type.Contains("EmailAIProcessingCompleted") && m.Content.Contains(emailId.ToString()))
             .ToListAsync();
             
-        messages.Count.Should().Be(1, "Exactly one completion event should be stored, proving IsCompletedEventPublished + xmin works.");
+        messages.Count.Should().Be(1, "Exactly one completion event should be stored, proving IsCompletedEventPublished + concurrency token prevents duplicates.");
     }
 
     [Fact]
@@ -256,11 +213,10 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         _dbContext.AutomationRules.AddRange(rule1, rule2);
         await _dbContext.SaveChangesAsync();
 
-        var harness = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<ITestHarness>();
-
-        // Simulate EmailReceived publishing EvaluateRulesMessage
         var evalService = _factory.Services.CreateScope().ServiceProvider.GetRequiredService<NexusMail.Automation.RuleEngine.IRuleEvaluationService>();
-        await evalService.EvaluateAsync(new EvaluateRulesMessage { EmailId = emailId, WorkspaceId = workspaceId, Subject = "Subject" }, CancellationToken.None);
+
+        // Simulate EmailReceived publishing EvaluateRulesMessage (Pre-AI pass)
+        await evalService.EvaluateAsync(new EvaluateRulesMessage { EmailId = emailId, WorkspaceId = workspaceId, Subject = "Subject", Sender = "sender@test.com", EmailAccountId = accountId }, CancellationToken.None);
 
         // Pre-AI Assertions
         var preAiExecutions = await _dbContext.AutomationExecutions.Where(e => e.EmailId == emailId).ToListAsync();
@@ -270,25 +226,24 @@ public class Step30_AutomationIntegrationTests : IClassFixture<CustomWebApplicat
         // Now AI processing completes
         var analysis = AIAnalysis.Create(emailId);
         _dbContext.Set<AIAnalysis>().Add(analysis);
-        analysis.StartSummary(Guid.NewGuid());
-        analysis.CompleteSummary(analysis.SummaryAttemptId!.Value, "Sum");
-        analysis.StartPriority(Guid.NewGuid());
-        analysis.CompletePriority(analysis.PriorityAttemptId!.Value, 10, "Low");
-        analysis.StartClassification(Guid.NewGuid());
-        analysis.CompleteClassification(analysis.ClassificationAttemptId!.Value, "Invoice", 1.0); // Matches Rule 2!
-        analysis.StartEmbedding(Guid.NewGuid());
-        analysis.CompleteEmbedding(analysis.EmbeddingAttemptId!.Value);
+        
+        var processingAttemptId = Guid.NewGuid();
+        analysis.StartProcessing(processingAttemptId);
+        analysis.CompleteProcessing(processingAttemptId, "Sum", 10, "Low", "Invoice", 1.0, null, false);
+        
+        var embeddingAttemptId = Guid.NewGuid();
+        analysis.StartEmbedding(embeddingAttemptId);
+        analysis.CompleteEmbedding(embeddingAttemptId);
         await _dbContext.SaveChangesAsync();
 
-        // The Outbox should now have EmailAIProcessingCompleted
-        // In a real environment, the MassTransit consumer processes the Domain Event and publishes AIProcessingCompletedMessage,
-        // which AIProcessingCompletedConsumer handles and calls RuleEvaluationService.
-        // We simulate the mapping here since MassTransit TestHarness might not pick up Outbox automatically in this test.
+        // Simulate AIProcessingCompletedConsumer calling RuleEvaluationService (Second pass)
         var postAiMsg = new EvaluateRulesMessage
         {
             EmailId = emailId,
             WorkspaceId = workspaceId,
+            EmailAccountId = accountId,
             Subject = "Subject",
+            Sender = "sender@test.com",
             AIMetadata = new Dictionary<string, object> { { "category", "Invoice" } }
         };
         await evalService.EvaluateAsync(postAiMsg, CancellationToken.None);

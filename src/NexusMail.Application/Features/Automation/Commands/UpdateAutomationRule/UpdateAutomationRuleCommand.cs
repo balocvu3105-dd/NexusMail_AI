@@ -11,5 +11,6 @@ public record UpdateAutomationRuleCommand(
     string Name,
     string ConditionsJson,
     string ActionsJson,
+    int ExpectedRuleVersion,
     string? Description = null
 ) : ICommand<Result>;

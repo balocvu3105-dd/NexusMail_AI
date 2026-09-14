@@ -16,6 +16,12 @@ public sealed class AutomationExecutionConfiguration : IEntityTypeConfiguration<
             .IsRequired()
             .HasMaxLength(50);
 
+        builder.Property(x => x.ExecutionVersion)
+            .IsConcurrencyToken();
+
+        builder.Property(x => x.ErrorMessage)
+            .HasMaxLength(2000);
+
         builder.HasIndex(x => new { x.RuleId, x.EmailId })
             .IsUnique();
     }

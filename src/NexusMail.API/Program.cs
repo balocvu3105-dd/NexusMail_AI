@@ -83,7 +83,9 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<NexusMail.Infrastructure.Persistence.ApplicationDbContext>("Database")
     .AddNpgSql(builder.Configuration.GetConnectionString("DefaultConnection")!, name: "PostgreSQL")
     .AddRabbitMQ(rabbitConnectionString: builder.Configuration.GetConnectionString("RabbitMq") ?? "amqp://guest:guest@localhost:5672", name: "RabbitMQ")
-    .AddDiskStorageHealthCheck(s => s.AddDrive("C:\\", 1024), name: "DiskSpace") // At least 1MB free
+    .AddDiskStorageHealthCheck(
+        s => s.AddDrive(Path.GetPathRoot(Environment.SystemDirectory) ?? "/", 1024),
+        name: "DiskSpace") // At least 1MB free
     .AddProcessAllocatedMemoryHealthCheck(1024, "Memory") // 1GB max
     .AddCheck<NexusMail.Infrastructure.Observability.PgVectorHealthCheck>("PgVector");
 

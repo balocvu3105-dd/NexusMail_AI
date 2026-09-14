@@ -6,6 +6,7 @@ import { EmailDetailPage } from './pages/EmailDetailPage';
 import { SearchPage } from './pages/SearchPage';
 import { LoginPage } from './pages/LoginPage';
 import { AutomationPage } from './pages/AutomationPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 import { useAuthStore, getRefreshToken } from './stores/authStore';
 import { apiClient } from './api/client';
 import type { AuthResponse, RefreshTokenRequest } from './types/auth';
@@ -66,6 +67,7 @@ export const App: React.FC = () => {
             <Route path="emails/:id" element={<EmailDetailPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="rules" element={<AutomationPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Route>

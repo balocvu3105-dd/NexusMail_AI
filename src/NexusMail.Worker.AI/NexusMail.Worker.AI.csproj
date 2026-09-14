@@ -8,12 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MassTransit.Quartz" Version="8.3.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageReference Include="Quartz" Version="3.19.1" />
+    <PackageReference Include="Quartz.Extensions.DependencyInjection" Version="3.19.1" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.19.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
     <ProjectReference Include="..\NexusMail.Infrastructure\NexusMail.Infrastructure.csproj" />
     <ProjectReference Include="..\NexusMail.Contracts\NexusMail.Contracts.csproj" />
+    <ProjectReference Include="..\NexusMail.EventHandlers\NexusMail.EventHandlers.csproj" />
   </ItemGroup>
 </Project>

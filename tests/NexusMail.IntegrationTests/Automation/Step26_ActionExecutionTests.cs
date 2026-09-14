@@ -39,7 +39,7 @@ namespace NexusMail.IntegrationTests.Automation
 
             var mockEmailProvider = new Mock<IEmailProvider>();
             mockEmailProvider
-                .Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), default))
+                .Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), default))
                 .Returns(Task.CompletedTask);
 
             var executorFactory = new NexusMail.Automation.Actions.ActionExecutorFactory(
@@ -106,7 +106,7 @@ namespace NexusMail.IntegrationTests.Automation
             await consumer.Consume(mockContext.Object);
 
             // Verify exactly ZERO invocations due to Delivery Idempotency
-            mockEmailProvider.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), default), Times.Never);
+            mockEmailProvider.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), default), Times.Never);
         }
 
         [Fact]
@@ -152,7 +152,7 @@ namespace NexusMail.IntegrationTests.Automation
             reloadedExecution.Status.Should().Be("Unknown");
             
             // Executor should NEVER be called on a redelivery if it's already Executing (without external idempotency)
-            mockEmailProvider.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), default), Times.Never);
+            mockEmailProvider.Verify(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), default), Times.Never);
         }
 
         [Fact]
@@ -169,7 +169,7 @@ namespace NexusMail.IntegrationTests.Automation
 
             var mockEmailProvider = new Mock<IEmailProvider>();
             mockEmailProvider
-                .Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), default))
+                .Setup(x => x.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), default))
                 .ThrowsAsync(new Exception("Network timeout or SMTP reset"));
 
             var executorFactory = new NexusMail.Automation.Actions.ActionExecutorFactory(
@@ -252,7 +252,7 @@ namespace NexusMail.IntegrationTests.Automation
 
             var mockExecutor = new Mock<NexusMail.Automation.Actions.IActionExecutor>();
             mockExecutor.SetupGet(x => x.ActionType).Returns(ActionType.ForwardEmail);
-            mockExecutor.Setup(x => x.ExecuteAsync(It.IsAny<string>(), It.IsAny<EvaluateRulesMessage>(), It.IsAny<System.Threading.CancellationToken>()))
+            mockExecutor.Setup(x => x.ExecuteAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<EvaluateRulesMessage>(), It.IsAny<System.Threading.CancellationToken>()))
                 .ReturnsAsync(ActionResult.TransientFailure);
 
             var mockFactory = new NexusMail.Automation.Actions.ActionExecutorFactory(new[] { mockExecutor.Object });
@@ -279,6 +279,90 @@ namespace NexusMail.IntegrationTests.Automation
             var execution = await dbContext.AutomationActionExecutions.FirstAsync(x => x.ExecutionId == executionId && x.ActionKey == actionKey);
             execution.Status.Should().Be("Failed");
             execution.RetryCount.Should().Be(1);
+        }
+        [Fact]
+        public async Task SafeRetry_NetworkFailureAfterSideEffect_ShouldNotDuplicate()
+        {
+            using var scope = _factory.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            
+            var executionId = Guid.NewGuid();
+            var actionKey = "0";
+            
+            dbContext.AutomationActionExecutions.Add(AutomationActionExecution.Create(executionId, actionKey, "ForwardEmail"));
+            await dbContext.SaveChangesAsync();
+
+            var stubProvider = new SafeRetryStubEmailProvider();
+            
+            var executorFactory = new NexusMail.Automation.Actions.ActionExecutorFactory(
+                new[] { new NexusMail.Automation.Actions.ForwardActionExecutor(stubProvider) });
+            
+            var logger = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NexusMail.Worker.Automation.Consumers.ActionExecutionConsumer>>();
+            var consumer = new NexusMail.Worker.Automation.Consumers.ActionExecutionConsumer(executorFactory, logger, dbContext);
+
+            var actionEvent = new ActionExecutionEvent
+            {
+                RuleId = Guid.NewGuid(),
+                EmailId = Guid.NewGuid(),
+                ExecutionId = executionId,
+                ActionsJson = @"[{""Type"":""ForwardEmail"",""Parameters"":{""to"":""test@test.com""}}]",
+                EvaluateContext = new NexusMail.Contracts.Automation.EvaluateRulesMessage { EmailId = Guid.NewGuid() }
+            };
+
+            var mockContext = new Mock<ConsumeContext<ActionExecutionEvent>>();
+            mockContext.Setup(c => c.Message).Returns(actionEvent);
+            mockContext.Setup(c => c.CancellationToken).Returns(System.Threading.CancellationToken.None);
+
+            // Attempt 1: Consumer executes it, Stub throws AFTER side effect
+            var act1 = () => consumer.Consume(mockContext.Object);
+            await act1.Should().ThrowAsync<Exception>().WithMessage("*transient failure*");
+
+            // Verify side effect count is 1 after attempt 1
+            stubProvider.SideEffectCount.Should().Be(1);
+
+            // Verify database state: status is Failed, retry count incremented
+            var execution = await dbContext.AutomationActionExecutions.FirstAsync(x => x.ExecutionId == executionId && x.ActionKey == actionKey);
+            execution.Status.Should().Be("Failed");
+            execution.RetryCount.Should().Be(1);
+
+            // Attempt 2: MassTransit retries, Consumer executes it again, Stub detects duplicate
+            // We clear the flag in the stub so it doesn't throw this time if it detects duplicate properly
+            // Actually, if duplicate is detected, it should return success without side effect.
+            await consumer.Consume(mockContext.Object);
+
+            // Verify side effect count is STILL 1
+            stubProvider.SideEffectCount.Should().Be(1);
+            
+            // Verify execution is now Success
+            var reloadedExecution = await dbContext.AutomationActionExecutions.FirstAsync(x => x.ExecutionId == executionId && x.ActionKey == actionKey);
+            reloadedExecution.Status.Should().Be("Success");
+        }
+    }
+
+    public class SafeRetryStubEmailProvider : IEmailProvider
+    {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _sentKeys = new();
+        public int SideEffectCount { get; private set; }
+
+        public Task SendEmailAsync(string to, string subject, string body, string? idempotencyKey = null, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(idempotencyKey))
+            {
+                throw new ArgumentNullException(nameof(idempotencyKey), "Safe retry requires an idempotency key.");
+            }
+
+            // Atomic check-and-record
+            if (!_sentKeys.TryAdd(idempotencyKey, true))
+            {
+                // Duplicate request detected: provider acknowledges without repeating side effect
+                return Task.CompletedTask;
+            }
+
+            // First request -> Side effect
+            SideEffectCount++;
+
+            // Simulate network failure AFTER the side effect occurred
+            throw new System.Net.Http.HttpRequestException("Network failure after side effect!");
         }
     }
 }

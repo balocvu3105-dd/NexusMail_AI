@@ -22,9 +22,21 @@ public sealed class EnableAutomationCommandHandler : IRequestHandler<EnableAutom
         {
             return Result.Failure(new Error("AutomationRule.NotFound", "Rule not found or does not belong to this workspace."));
         }
+        if (rule.RuleVersion != request.ExpectedRuleVersion)
+        {
+            return Result.Failure(new Error("AutomationRule.Concurrency", "The rule was modified by another user. Please reload the latest version."));
+        }
 
         rule.Enable();
-        await _repository.UpdateRuleAsync(rule, cancellationToken);
+        
+        try
+        {
+            await _repository.UpdateRuleAsync(rule, cancellationToken);
+        }
+        catch (NexusMail.Domain.Exceptions.ConcurrencyException)
+        {
+            return Result.Failure(new Error("AutomationRule.Concurrency", "The rule was modified by another user. Please reload the latest version."));
+        }
 
         return Result.Success();
     }

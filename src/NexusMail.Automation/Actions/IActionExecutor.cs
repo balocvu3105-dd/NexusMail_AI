@@ -19,9 +19,8 @@ public interface IActionExecutor
 
     /// <summary>
     /// Execute the action with the given parameters JSON.
-    /// Should be idempotent — may be retried on failure.
     /// </summary>
-    Task<ActionResult> ExecuteAsync(string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default);
+    Task<ActionResult> ExecuteAsync(string idempotencyKey, string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

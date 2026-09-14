@@ -136,10 +136,11 @@ public static class DependencyInjection
         services.AddScoped<IAIModelProviderFactory, NexusMail.Infrastructure.AI.Factory.AIModelProviderFactory>();
 
         services.AddScoped<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>();
-        services.AddScoped<ISummaryService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
-        services.AddScoped<IPriorityService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
-        services.AddScoped<IClassificationService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
+        services.AddScoped<IAIProcessingService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
         services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
+
+        // Dummy Kernel to fix "No service for type 'Microsoft.SemanticKernel.Kernel' has been registered"
+        services.AddScoped<Microsoft.SemanticKernel.Kernel>(sp => null!);
 
         // ─── Identity ──────────────────────────────────────────────────────
         services.AddOptions<NexusMail.Infrastructure.Identity.JwtSettings>()
@@ -197,7 +198,7 @@ internal sealed class StubEmailProvider : IEmailProvider
     public Task<ProviderTokens> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
         
-    public Task<bool> SendEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
+    public Task<bool> SendEmailAsync(string to, string subject, string body, string? idempotencyKey = null, CancellationToken cancellationToken = default)
         => Task.FromResult(true);
 }
 

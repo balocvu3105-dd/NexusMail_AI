@@ -87,16 +87,6 @@ namespace NexusMail.Infrastructure.Persistence.Migrations
                     b.Property<string>("Category")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ClassificationAttemptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ClassificationError")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ClassificationStatus")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<double>("Confidence")
                         .HasColumnType("double precision");
 
@@ -119,33 +109,29 @@ namespace NexusMail.Infrastructure.Persistence.Migrations
                     b.Property<string>("Language")
                         .HasColumnType("text");
 
+                    b.Property<bool>("NeedsAttention")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Priority")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("PriorityAttemptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PriorityError")
                         .HasColumnType("text");
 
                     b.Property<int>("PriorityScore")
                         .HasColumnType("integer");
 
-                    b.Property<string>("PriorityStatus")
+                    b.Property<Guid?>("ProcessingAttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProcessingError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ProcessingStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProcessingState")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Summary")
-                        .HasColumnType("text");
-
-                    b.Property<Guid?>("SummaryAttemptId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SummaryError")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SummaryStatus")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.PrimitiveCollection<List<string>>("Tags")
@@ -256,11 +242,22 @@ namespace NexusMail.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("EmailId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ExecutionVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("RuleId")
                         .HasColumnType("uuid");
@@ -317,6 +314,7 @@ namespace NexusMail.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<int>("RuleVersion")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<int>("TriggerType")

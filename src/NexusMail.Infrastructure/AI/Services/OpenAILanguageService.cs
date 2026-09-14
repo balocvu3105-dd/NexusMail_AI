@@ -9,7 +9,7 @@ using NexusMail.Shared.Common;
 
 namespace NexusMail.Infrastructure.AI.Services;
 
-public sealed class OpenAILanguageService : ISummaryService, IPriorityService, IClassificationService, IEmbeddingService
+public sealed class OpenAILanguageService : IAIProcessingService, IEmbeddingService
 {
     private readonly IAIModelProvider _provider;
     private readonly ILogger<OpenAILanguageService> _logger;
@@ -24,120 +24,49 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
         _logger = logger;
     }
 
-    public async Task<Result<string>> GenerateSummaryAsync(string subject, string body, CancellationToken cancellationToken = default)
+    public async Task<Result<EmailAnalysisResult>> ProcessEmailAsync(string subject, string body, string sender, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Generating summary via {ProviderName}", _provider.ProviderName);
+        _logger.LogInformation("Processing email via {ProviderName}", _provider.ProviderName);
 
-        var prompt = "Summarize this email in 2-5 concise sentences. Focus on the core intent, requested actions, and key facts. Be objective.";
-        var content = $"Subject: {subject}\n\n{body}";
-
-        var request = new AICompletionRequest
-        {
-            SystemPrompt = prompt,
-            Messages = new[] { new AIMessage(AIRole.User, content) },
-            Temperature = 0.2,
-            MaxTokens = 250,
-            PromptVersion = "Summary_v1"
-        };
-
-        try
-        {
-            var response = await _provider.CompleteAsync(request, cancellationToken);
-            if (!response.IsSuccess)
-            {
-                return HandleProviderFailure<string>(response.ErrorMessage);
-            }
-            return Result.Success(response.Content.Trim());
-        }
-        catch (Exception ex)
-        {
-            return HandleException<string>(ex);
-        }
-    }
-
-    public async Task<Result<AIClassificationResult>> GenerateClassificationAsync(string subject, string body, string sender, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Classifying email via {ProviderName}", _provider.ProviderName);
-
-        var systemPrompt = "Classify this email. Output ONLY valid JSON matching the exact schema provided. Do not include markdown code blocks.";
-        var content = $"From: {sender}\nSubject: {subject}\n\n{body}";
+        var systemPrompt = "Analyze this email. Output ONLY valid JSON matching the exact schema provided. Do not include markdown code blocks. Provide a concise summary, priority score (1-100), classification, and whether it requires immediate human attention.";
+        var truncatedBody = body.Length > 12_000 ? body[..12_000] : body;
+        var content = $"From: {sender}\nSubject: {subject}\n\n{truncatedBody}";
 
         var jsonSchema = """
         {
-            "name": "classification_result",
-            "schema": {
+          "name": "email_analysis_result",
+          "strict": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "classification": {
                 "type": "object",
                 "properties": {
-                    "category": { "type": "string", "description": "The primary category of the email (e.g. Invoice, Newsletter, Support, Personal, Alert)" },
-                    "confidence": { "type": "number", "description": "Confidence score between 0.0 and 1.0" },
-                    "tags": { "type": "array", "items": { "type": "string" }, "description": "1 to 5 relevant tags/keywords" }
+                  "category": { "type": "string", "enum": ["Spam", "Newsletter", "Personal", "Work", "Alert", "Other"] },
+                  "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                  "tags": { "type": "array", "items": { "type": "string" } }
                 },
                 "required": ["category", "confidence", "tags"],
                 "additionalProperties": false
-            },
-            "strict": true
-        }
-        """;
-
-        var request = new AICompletionRequest
-        {
-            SystemPrompt = systemPrompt,
-            Messages = new[] { new AIMessage(AIRole.User, content) },
-            Temperature = 0.1,
-            ResponseFormat = AIResponseFormat.Json,
-            JsonSchema = jsonSchema,
-            PromptVersion = "Classification_v1"
-        };
-
-        try
-        {
-            var response = await _provider.CompleteAsync(request, cancellationToken);
-            if (!response.IsSuccess)
-            {
-                return HandleProviderFailure<AIClassificationResult>(response.ErrorMessage);
-            }
-
-            var result = JsonSerializer.Deserialize<ClassificationJsonResult>(response.Content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            
-            if (result == null || string.IsNullOrWhiteSpace(result.Category))
-            {
-                return Result.Failure<AIClassificationResult>(new Error("AI.InvalidResponse", "Failed to parse classification JSON or missing required fields."));
-            }
-
-            return Result.Success(new AIClassificationResult(result.Category, result.Confidence, result.Tags));
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse classification JSON");
-            return Result.Failure<AIClassificationResult>(new Error("AI.InvalidFormat", "AI Classification parsing failed"));
-        }
-        catch (Exception ex)
-        {
-            return HandleException<AIClassificationResult>(ex);
-        }
-    }
-
-    public async Task<Result<AIPriorityResult>> GeneratePriorityAsync(string subject, string body, string sender, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Assessing priority via {ProviderName}", _provider.ProviderName);
-
-        var systemPrompt = "Assess the priority of this email (1 = lowest, 5 = highest). Output ONLY valid JSON.";
-        var content = $"From: {sender}\nSubject: {subject}\n\n{body}";
-
-        var jsonSchema = """
-        {
-            "name": "priority_result",
-            "schema": {
+              },
+              "priority": {
                 "type": "object",
                 "properties": {
-                    "score": { "type": "integer", "description": "Priority score from 1 to 5" },
-                    "reason": { "type": "string", "description": "Short explanation of why this score was given" },
-                    "requiresAction": { "type": "boolean", "description": "True if the user needs to reply or take action" }
+                  "score": { "type": "integer", "minimum": 1, "maximum": 100 },
+                  "reason": { "type": "string" }
                 },
-                "required": ["score", "reason", "requiresAction"],
+                "required": ["score", "reason"],
                 "additionalProperties": false
+              },
+              "summary": { "type": "string" },
+              "needsAttention": {
+                "type": "boolean",
+                "description": "True if the email requires immediate human action or reply."
+              }
             },
-            "strict": true
+            "required": ["classification", "priority", "summary", "needsAttention"],
+            "additionalProperties": false
+          }
         }
         """;
 
@@ -148,7 +77,7 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
             Temperature = 0.1,
             ResponseFormat = AIResponseFormat.Json,
             JsonSchema = jsonSchema,
-            PromptVersion = "Priority_v1"
+            PromptVersion = "Processing_v1"
         };
 
         try
@@ -156,25 +85,34 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
             var response = await _provider.CompleteAsync(request, cancellationToken);
             if (!response.IsSuccess)
             {
-                return HandleProviderFailure<AIPriorityResult>(response.ErrorMessage);
+                return HandleProviderFailure<EmailAnalysisResult>(response.ErrorMessage);
             }
 
-            var result = JsonSerializer.Deserialize<PriorityJsonResult>(response.Content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (result == null)
+            var result = JsonSerializer.Deserialize<ProcessingJsonResult>(response.Content, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            
+            if (result == null || result.Classification == null || result.Priority == null)
             {
-                return Result.Failure<AIPriorityResult>(new Error("AI.InvalidResponse", "Failed to parse priority JSON"));
+                return Result.Failure<EmailAnalysisResult>(new Error("AI.InvalidResponse", "Failed to parse processing JSON or missing required fields."));
             }
 
-            return Result.Success(new AIPriorityResult(result.Score, result.Reason, result.RequiresAction));
+            return Result.Success(new EmailAnalysisResult(
+                result.Summary,
+                result.Priority.Score,
+                result.Priority.Reason,
+                result.Classification.Category,
+                result.Classification.Confidence,
+                result.Classification.Tags,
+                result.NeedsAttention
+            ));
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Failed to parse priority JSON");
-            return Result.Failure<AIPriorityResult>(new Error("AI.InvalidFormat", "AI Priority parsing failed"));
+            _logger.LogError(ex, "Failed to parse processing JSON");
+            return Result.Failure<EmailAnalysisResult>(new Error("AI.InvalidFormat", "AI Processing parsing failed"));
         }
         catch (Exception ex)
         {
-            return HandleException<AIPriorityResult>(ex);
+            return HandleException<EmailAnalysisResult>(ex);
         }
     }
 
@@ -214,7 +152,6 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
             throw ex; // Re-throw transient exceptions
         }
         
-        // For integration testing or real implementations that throw HttpRequestException, etc.
         var message = ex.Message.ToLowerInvariant();
         if (message.Contains("429") || message.Contains("503") || message.Contains("timeout") || message.Contains("transient"))
         {
@@ -226,6 +163,14 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
     }
 
     // Private DTOs for JSON deserialization
+    private class ProcessingJsonResult
+    {
+        public ClassificationJsonResult Classification { get; set; } = new();
+        public PriorityJsonResult Priority { get; set; } = new();
+        public string Summary { get; set; } = string.Empty;
+        public bool NeedsAttention { get; set; }
+    }
+
     private class ClassificationJsonResult
     {
         public string Category { get; set; } = string.Empty;
@@ -237,6 +182,5 @@ public sealed class OpenAILanguageService : ISummaryService, IPriorityService, I
     {
         public int Score { get; set; }
         public string Reason { get; set; } = string.Empty;
-        public bool RequiresAction { get; set; }
     }
 }

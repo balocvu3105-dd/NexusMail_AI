@@ -30,6 +30,7 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({ rule, onClose, onSave })
         triggerType,
         conditionsJson,
         actionsJson,
+        expectedRuleVersion: rule?.ruleVersion || 1,
         dryRun: false
       };
 
@@ -40,8 +41,16 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({ rule, onClose, onSave })
       }
       onSave();
     } catch (err: any) {
-      setError(err.message || 'Invalid JSON format or server error');
+      if (err.response?.status === 409) {
+        setError('Rule was modified elsewhere.');
+      } else {
+        setError(err.message || 'Invalid JSON format or server error');
+      }
     }
+  };
+
+  const handleReload = () => {
+    onSave(); // this triggers fetchRules and closes editor, user can reopen
   };
 
   return (
@@ -53,7 +62,16 @@ export const RuleEditor: React.FC<RuleEditorProps> = ({ rule, onClose, onSave })
         </div>
         
         <div className={styles.body}>
-          {error && <div className={styles.error}>{error}</div>}
+          {error && (
+            <div className={styles.error}>
+              {error}
+              {error === 'Rule was modified elsewhere.' && (
+                <button onClick={handleReload} className={styles.reloadButton}>
+                  Reload latest version
+                </button>
+              )}
+            </div>
+          )}
           
           <div className={styles.formGroup}>
             <label>Name</label>

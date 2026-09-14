@@ -22,6 +22,11 @@ public sealed class UpdateAutomationRuleCommandHandler : IRequestHandler<UpdateA
             return Result.Failure(new Error("AutomationRule.NotFound", "Rule not found or does not belong to this workspace."));
         }
 
+        if (rule.RuleVersion != request.ExpectedRuleVersion)
+        {
+            return Result.Failure(new Error("AutomationRule.Concurrency", "The rule was modified by another user. Please reload the latest version."));
+        }
+
         var conditionError = AutomationConfigurationValidator.ValidateConditions(request.ConditionsJson);
         if (conditionError != null) return Result.Failure(conditionError);
 
@@ -30,7 +35,14 @@ public sealed class UpdateAutomationRuleCommandHandler : IRequestHandler<UpdateA
 
         rule.Update(request.Name, request.Description, request.ConditionsJson, request.ActionsJson);
 
-        await _repository.UpdateRuleAsync(rule, cancellationToken);
+        try
+        {
+            await _repository.UpdateRuleAsync(rule, cancellationToken);
+        }
+        catch (NexusMail.Domain.Exceptions.ConcurrencyException)
+        {
+            return Result.Failure(new Error("AutomationRule.Concurrency", "The rule was modified by another user. Please reload the latest version."));
+        }
 
         return Result.Success();
     }

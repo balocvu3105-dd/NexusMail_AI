@@ -5,39 +5,32 @@ using NexusMail.Application.Abstractions.AI;
 using NexusMail.Application.Abstractions.Persistence;
 using NexusMail.Application.Features.Email.Abstractions;
 using NexusMail.Domain.AI.Entities;
+using NexusMail.Domain.AI.Enums;
 using NexusMail.Shared.Domain;
 
 namespace NexusMail.Application.Features.AI.Services;
 
 public interface IAIWorkflowManager
 {
-    Task<Result<Guid>> GenerateSummaryAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken);
-    Task<Result<Guid>> ScorePriorityAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken);
-    Task<Result<Guid>> CategorizeEmailAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken);
+    Task<Result<Guid>> ProcessEmailAIAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken);
     Task<Result<Guid>> GenerateEmbeddingAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken);
 }
 
 public sealed class AIWorkflowManager : IAIWorkflowManager
 {
     private readonly IEmailRepository _emailRepository;
-    private readonly ISummaryService _summaryService;
-    private readonly IPriorityService _priorityService;
-    private readonly IClassificationService _classificationService;
+    private readonly IAIProcessingService _aiProcessingService;
     private readonly IEmbeddingService _embeddingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AIWorkflowManager(
         IEmailRepository emailRepository,
-        ISummaryService summaryService,
-        IPriorityService priorityService,
-        IClassificationService classificationService,
+        IAIProcessingService aiProcessingService,
         IEmbeddingService embeddingService,
         IUnitOfWork unitOfWork)
     {
         _emailRepository = emailRepository;
-        _summaryService = summaryService;
-        _priorityService = priorityService;
-        _classificationService = classificationService;
+        _aiProcessingService = aiProcessingService;
         _embeddingService = embeddingService;
         _unitOfWork = unitOfWork;
     }
@@ -60,7 +53,7 @@ public sealed class AIWorkflowManager : IAIWorkflowManager
         return analysis;
     }
 
-    public async Task<Result<Guid>> GenerateSummaryAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> ProcessEmailAIAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken)
     {
         var result = await _emailRepository.GetEmailWithAnalysisAsync(emailId, workspaceId, cancellationToken);
         if (result == null)
@@ -70,97 +63,37 @@ public sealed class AIWorkflowManager : IAIWorkflowManager
         var analysis = await InitializeAnalysisAsync(email, result.Value.Analysis, cancellationToken);
 
         Guid attemptId = Guid.NewGuid();
-        if (!analysis.StartSummary(attemptId))
-            return Result.Success(analysis.Id);
-
-        _emailRepository.UpdateAnalysis(analysis);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        try
+        if (!analysis.StartProcessing(attemptId))
         {
-            var summaryResult = await _summaryService.GenerateSummaryAsync(email.Subject, email.Content, cancellationToken);
-            if (summaryResult.IsSuccess)
-                analysis.CompleteSummary(attemptId, summaryResult.Value);
-            else
-                analysis.FailSummary(attemptId, summaryResult.Error.Description);
-
-            _emailRepository.UpdateAnalysis(analysis);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Success(analysis.Id);
-        }
-        catch (AIProviderTransientException)
-        {
-            analysis.ResetSummaryToPending(attemptId);
-            _emailRepository.UpdateAnalysis(analysis);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            throw;
-        }
-    }
-
-    public async Task<Result<Guid>> ScorePriorityAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken)
-    {
-        var result = await _emailRepository.GetEmailWithAnalysisAsync(emailId, workspaceId, cancellationToken);
-        if (result == null)
-            return Result.Failure<Guid>(new Error("Email.NotFound", "Email not found."));
-
-        var email = result.Value.Email;
-        var analysis = await InitializeAnalysisAsync(email, result.Value.Analysis, cancellationToken);
-
-        Guid attemptId = Guid.NewGuid();
-        if (!analysis.StartPriority(attemptId))
-            return Result.Success(analysis.Id);
-
-        _emailRepository.UpdateAnalysis(analysis);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        try
-        {
-            var priorityResult = await _priorityService.GeneratePriorityAsync(email.Subject, email.Content, email.Sender, cancellationToken);
-            if (priorityResult.IsSuccess)
-                analysis.CompletePriority(attemptId, priorityResult.Value.Score, priorityResult.Value.Reason);
-            else
-                analysis.FailPriority(attemptId, priorityResult.Error.Description);
-
-            _emailRepository.UpdateAnalysis(analysis);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Success(analysis.Id);
-        }
-        catch (AIProviderTransientException)
-        {
-            analysis.ResetPriorityToPending(attemptId);
-            _emailRepository.UpdateAnalysis(analysis);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            throw;
-        }
-    }
-
-    public async Task<Result<Guid>> CategorizeEmailAsync(Guid emailId, Guid workspaceId, CancellationToken cancellationToken)
-    {
-        var result = await _emailRepository.GetEmailWithAnalysisAsync(emailId, workspaceId, cancellationToken);
-        if (result == null)
-            return Result.Failure<Guid>(new Error("Email.NotFound", "Email not found."));
-
-        var email = result.Value.Email;
-        var analysis = await InitializeAnalysisAsync(email, result.Value.Analysis, cancellationToken);
-
-        Guid attemptId = Guid.NewGuid();
-        if (!analysis.StartClassification(attemptId))
-            return Result.Success(analysis.Id);
-
-        _emailRepository.UpdateAnalysis(analysis);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        try
-        {
-            var classificationResult = await _classificationService.GenerateClassificationAsync(email.Subject, email.Content, email.Sender, cancellationToken);
-            if (classificationResult.IsSuccess)
+            if (analysis.ProcessingState == AIProcessingStatus.Processing)
             {
-                var val = classificationResult.Value;
-                analysis.CompleteClassification(attemptId, val.Category, val.Confidence, new System.Collections.Generic.List<string>(val.Tags));
+                throw new AIProviderTransientException("Email is currently being processed by another attempt. Retrying...");
+            }
+            return Result.Success(analysis.Id); // Already succeeded
+        }
+
+        _emailRepository.UpdateAnalysis(analysis);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            var aiResult = await _aiProcessingService.ProcessEmailAsync(email.Subject, email.Content, email.Sender, cancellationToken);
+            if (aiResult.IsSuccess)
+            {
+                var val = aiResult.Value;
+                analysis.CompleteProcessing(
+                    attemptId, 
+                    val.Summary, 
+                    val.PriorityScore, 
+                    val.PriorityReason, 
+                    val.Category, 
+                    val.Confidence, 
+                    new System.Collections.Generic.List<string>(val.Tags), 
+                    val.NeedsAttention);
             }
             else
             {
-                analysis.FailClassification(attemptId, classificationResult.Error.Description);
+                analysis.FailProcessing(attemptId, aiResult.Error.Description);
             }
 
             _emailRepository.UpdateAnalysis(analysis);
@@ -169,7 +102,7 @@ public sealed class AIWorkflowManager : IAIWorkflowManager
         }
         catch (AIProviderTransientException)
         {
-            analysis.ResetClassificationToPending(attemptId);
+            analysis.ResetProcessingToPending(attemptId);
             _emailRepository.UpdateAnalysis(analysis);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             throw;

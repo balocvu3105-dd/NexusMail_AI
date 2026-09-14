@@ -14,5 +14,6 @@
   <ItemGroup>
     <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
     <ProjectReference Include="..\NexusMail.Infrastructure\NexusMail.Infrastructure.csproj" />
+    <ProjectReference Include="..\NexusMail.EventHandlers\NexusMail.EventHandlers.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,32 @@
+=== NexusMail Phase D Validation Trigger ===
+EmailId:    b957a5a8-ca4b-4361-97c8-773af1311cb5
+AnalysisId: 678884c3-89cd-46df-a761-a6c1efcea996
+
+[1] Inserting test Email...
+  ✓ Email inserted: Id=b957a5a8-ca4b-4361-97c8-773af1311cb5
+
+[2] Inserting AIAnalysis (Pending)...
+Unhandled exception. Npgsql.PostgresException (0x80004005): 23502: null value in column "Tags" of relation "AIAnalyses" violates not-null constraint
+
+DETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.
+   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)
+   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)
+   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
+   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)
+   at Npgsql.NpgsqlDataReader.NextResult()
+   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
+   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)
+   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)
+   at Npgsql.NpgsqlCommand.ExecuteNonQuery()
+   at Program.<Main>$(String[] args) in D:\source code\AI Engineering Blueprint\NexusMail-AI\tests\TriggerAI\Program.cs:line 61
+  Exception data:
+    Severity: ERROR
+    SqlState: 23502
+    MessageText: null value in column "Tags" of relation "AIAnalyses" violates not-null constraint
+    Detail: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.
+    SchemaName: public
+    TableName: AIAnalyses
+    ColumnName: Tags
+    File: execMain.c
+    Line: 2057
+    Routine: ExecConstraints

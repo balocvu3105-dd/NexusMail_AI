@@ -18,7 +18,7 @@ public sealed class NotifyActionExecutor : IActionExecutor
         _publishEndpoint = publishEndpoint;
     }
 
-    public async Task<ActionResult> ExecuteAsync(string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> ExecuteAsync(string idempotencyKey, string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
     {
         string message = "";
         if (!string.IsNullOrWhiteSpace(parametersJson) && parametersJson != "[]" && parametersJson != "{}")

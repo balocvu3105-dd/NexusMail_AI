@@ -13,6 +13,8 @@ builder.AddNexusMailObservability("NexusMail.Worker.EmailSync");
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(NexusMail.EventHandlers.Email.EmailReceivedDomainEventHandler).Assembly));
+
 builder.Services.AddMassTransit(x =>
 {
     x.UsingRabbitMq((context, cfg) =>

@@ -31,15 +31,7 @@ public class AIAnalysisConfiguration : IEntityTypeConfiguration<AIAnalysis>
         builder.Property(a => a.Priority)
                .IsRequired(false);
 
-        builder.Property(a => a.SummaryStatus)
-               .HasConversion<string>()
-               .IsRequired();
-               
-        builder.Property(a => a.PriorityStatus)
-               .HasConversion<string>()
-               .IsRequired();
-               
-        builder.Property(a => a.ClassificationStatus)
+        builder.Property(a => a.ProcessingState)
                .HasConversion<string>()
                .IsRequired();
                
@@ -50,6 +42,8 @@ public class AIAnalysisConfiguration : IEntityTypeConfiguration<AIAnalysis>
         builder.Property(a => a.Confidence);
         
         builder.Property(a => a.PriorityScore);
+
+        builder.Property(a => a.NeedsAttention);
 
         builder.PrimitiveCollection(a => a.Tags)
                .HasColumnType("text[]");

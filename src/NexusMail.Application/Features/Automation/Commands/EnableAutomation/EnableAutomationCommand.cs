@@ -4,4 +4,4 @@ using NexusMail.Application.Abstractions.Messaging;
 
 namespace NexusMail.Application.Features.Automation.Commands.EnableAutomation;
 
-public record EnableAutomationCommand(Guid RuleId, Guid WorkspaceId) : ICommand<Result>;
+public record EnableAutomationCommand(Guid RuleId, Guid WorkspaceId, int ExpectedRuleVersion) : ICommand<Result>;

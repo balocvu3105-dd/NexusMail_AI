@@ -16,6 +16,7 @@ public sealed class AutomationRuleConfiguration : IEntityTypeConfiguration<Autom
         builder.Property(x => x.Description).HasMaxLength(1000);
         builder.Property(x => x.ConditionsJson).HasColumnType("jsonb");
         builder.Property(x => x.ActionsJson).HasColumnType("jsonb");
+        builder.Property(x => x.RuleVersion).IsConcurrencyToken();
         
         builder.HasIndex(x => x.WorkspaceId);
     }

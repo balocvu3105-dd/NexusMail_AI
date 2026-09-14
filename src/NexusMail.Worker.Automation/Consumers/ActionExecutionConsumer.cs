@@ -96,7 +96,8 @@ public sealed class ActionExecutionConsumer : IConsumer<ActionExecutionEvent>
                             ? JsonSerializer.Serialize(action.Parameters) 
                             : "{}";
                             
-                        var result = await executor.ExecuteAsync(parametersJson, msg.EvaluateContext, context.CancellationToken);
+                        string idempotencyKey = $"nexusmail:automation:{msg.ExecutionId}:{actionKey}";
+                        var result = await executor.ExecuteAsync(idempotencyKey, parametersJson, msg.EvaluateContext, context.CancellationToken);
                         
                         _logger.LogInformation("Action {ActionType} executed for Email {EmailId} with result {Result}", actionType, msg.EmailId, result);
 
@@ -161,6 +162,73 @@ public sealed class ActionExecutionConsumer : IConsumer<ActionExecutionEvent>
 
         // Final save for any successes or permanent failures
         await _dbContext.SaveChangesAsync(context.CancellationToken);
+
+        // Roll-up Root Status
+        await FinalizeRootExecutionAsync(msg.ExecutionId, context.CancellationToken);
+    }
+
+    private async Task FinalizeRootExecutionAsync(Guid executionId, CancellationToken cancellationToken)
+    {
+        var actionExecutions = await _dbContext.AutomationActionExecutions
+            .Where(x => x.ExecutionId == executionId)
+            .ToListAsync(cancellationToken);
+
+        if (actionExecutions.Count == 0)
+        {
+            // E.g. Json parsing failed, no actions were created. Mark failed.
+            await TryCompleteExecutionAsync(executionId, "Failed", "No actions found or failed to parse.", cancellationToken);
+            return;
+        }
+
+        // If any action is still pending or executing, do not finalize.
+        if (actionExecutions.Any(x => x.Status == "Pending" || x.Status == "Executing"))
+        {
+            return;
+        }
+
+        // We use "Failed" in our system to also represent TransientFailure which is waiting for retry.
+        // Wait, earlier the code does: actionExecution.MarkFailed("Transient failure..."); then throws.
+        // If it threw, we wouldn't reach here. But what if it failed permanently?
+        // Let's check for any PermanentFailure vs Retry.
+        // If it's a permanent failure, the consumer does NOT throw. It just continues.
+        // So if we reach here and there is a "Failed" status, it MUST be a permanent failure (or all retries exhausted, which also means permanent).
+        // Let's implement the policy:
+        if (actionExecutions.Any(x => x.Status == "Failed"))
+        {
+            await TryCompleteExecutionAsync(executionId, "Failed", "One or more automation actions failed permanently.", cancellationToken);
+            return;
+        }
+
+        if (actionExecutions.Any(x => x.Status == "Unknown"))
+        {
+            await TryCompleteExecutionAsync(executionId, "Unknown", "One or more automation actions resulted in an unknown state.", cancellationToken);
+            return;
+        }
+
+        if (actionExecutions.All(x => x.Status == "Success" || x.Status == "NotApplicable"))
+        {
+            await TryCompleteExecutionAsync(executionId, "Succeeded", null, cancellationToken);
+            return;
+        }
+    }
+
+    private async Task TryCompleteExecutionAsync(Guid executionId, string finalStatus, string? errorMessage, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var execution = await _dbContext.AutomationExecutions.FirstOrDefaultAsync(x => x.Id == executionId, cancellationToken);
+            if (execution == null) return;
+
+            if (execution.Complete(finalStatus, errorMessage))
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _logger.LogInformation("Finalized AutomationExecution {ExecutionId} with status {Status}", executionId, finalStatus);
+            }
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _logger.LogWarning("Concurrent finalization detected for AutomationExecution {ExecutionId}. Ignoring.", executionId);
+        }
     }
 }
 

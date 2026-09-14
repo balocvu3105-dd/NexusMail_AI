@@ -12,6 +12,7 @@ export interface AutomationRule {
   triggerType: string;
   conditionsJson: string;
   actionsJson: string;
+  ruleVersion: number;
 }
 
 export const AutomationPage: React.FC = () => {
@@ -44,14 +45,20 @@ export const AutomationPage: React.FC = () => {
 
   const handleToggle = async (rule: AutomationRule) => {
     try {
+      const payload = { expectedRuleVersion: rule.ruleVersion };
       if (rule.isEnabled) {
-        await apiClient.post(`/automation/rules/${rule.id}/disable`);
+        await apiClient.post(`/automation/rules/${rule.id}/disable`, payload);
       } else {
-        await apiClient.post(`/automation/rules/${rule.id}/enable`);
+        await apiClient.post(`/automation/rules/${rule.id}/enable`, payload);
       }
       fetchRules();
-    } catch (err) {
-      console.error('Failed to toggle rule', err);
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        alert("The rule was modified by another user. Reloading the latest version...");
+        fetchRules();
+      } else {
+        console.error('Failed to toggle rule', err);
+      }
     }
   };
 

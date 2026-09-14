@@ -18,7 +18,7 @@ public sealed class AutoReplyActionExecutor : IActionExecutor
         _publishEndpoint = publishEndpoint;
     }
 
-    public async Task<ActionResult> ExecuteAsync(string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> ExecuteAsync(string idempotencyKey, string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
     {
         // For Draft Generation, we just publish an event for the AI Worker to handle it.
         // We shouldn't do long-running LLM calls directly in the Automation Rule engine execution.

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Inbox, Search, Settings, Mail, LogOut } from 'lucide-react';
+import { Inbox, Search, Settings, Mail, LogOut, BarChart2 } from 'lucide-react';
 import { useAuthStore, getRefreshToken } from '../stores/authStore';
 import { apiClient } from '../api/client';
 import type { LogoutRequest } from '../types/auth';
@@ -101,6 +101,13 @@ export const Layout: React.FC = () => {
           >
             <Settings size={20} />
             <span>Automation</span>
+          </NavLink>
+          <NavLink 
+            to="/analytics" 
+            className={({ isActive }) => isActive ? `${styles.navItem} ${styles.active}` : styles.navItem}
+          >
+            <BarChart2 size={20} />
+            <span>Analytics</span>
           </NavLink>
         </nav>
 

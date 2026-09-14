@@ -80,7 +80,7 @@ namespace NexusMail.IntegrationTests
                 // Mock IEmailProvider for ForwardActionExecutor
                 var mockEmailProvider = new Moq.Mock<NexusMail.Application.Abstractions.Email.IEmailProvider>();
                 mockEmailProvider
-                    .Setup(x => x.SendEmailAsync(Moq.It.IsAny<string>(), Moq.It.IsAny<string>(), Moq.It.IsAny<string>(), default))
+                    .Setup(x => x.SendEmailAsync(Moq.It.IsAny<string>(), Moq.It.IsAny<string>(), Moq.It.IsAny<string>(), Moq.It.IsAny<string?>(), default))
                     .Returns(System.Threading.Tasks.Task.CompletedTask);
                 services.AddSingleton<NexusMail.Application.Abstractions.Email.IEmailProvider>(mockEmailProvider.Object);
                 
@@ -116,6 +116,23 @@ namespace NexusMail.IntegrationTests
                 services.AddDbContext<NexusMail.Infrastructure.Search.Persistence.SearchDbContext>(opts =>
                 {
                     opts.UseInMemoryDatabase("TestSearchDb");
+                });
+
+                // Mock IAIModelProviderFactory for FakeAIModelProvider
+                var providerFactoryDescriptors = services.Where(d => d.ServiceType == typeof(NexusMail.Application.Abstractions.AI.IAIModelProviderFactory)).ToList();
+                foreach (var d in providerFactoryDescriptors) services.Remove(d);
+                
+                services.AddSingleton<NexusMail.IntegrationTests.FakeAIModelProvider>();
+                var mockAiFactory = new Moq.Mock<NexusMail.Application.Abstractions.AI.IAIModelProviderFactory>();
+                mockAiFactory
+                    .Setup(x => x.Get(Moq.It.IsAny<string>()))
+                    .Returns((System.IServiceProvider sp) => sp.GetRequiredService<NexusMail.IntegrationTests.FakeAIModelProvider>());
+                services.AddSingleton<NexusMail.Application.Abstractions.AI.IAIModelProviderFactory>(sp => 
+                {
+                    var mock = new Moq.Mock<NexusMail.Application.Abstractions.AI.IAIModelProviderFactory>();
+                    mock.Setup(x => x.Get(Moq.It.IsAny<string>()))
+                        .Returns(sp.GetRequiredService<NexusMail.IntegrationTests.FakeAIModelProvider>());
+                    return mock.Object;
                 });
             });
         }

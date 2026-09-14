@@ -97,12 +97,14 @@ public sealed class AutomationRule : AggregateRoot
     public void Enable()
     {
         IsEnabled = true;
+        RuleVersion++;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
     public void Disable()
     {
         IsEnabled = false;
+        RuleVersion++;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 

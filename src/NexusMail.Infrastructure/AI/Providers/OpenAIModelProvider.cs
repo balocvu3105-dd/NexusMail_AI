@@ -128,6 +128,10 @@ public sealed class OpenAIModelProvider : IAIModelProvider
                 EstimatedCost = estimatedCost
             };
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "OpenAI CompleteAsync failed.");

@@ -1,0 +1,21 @@
+=== NexusMail Phase D Validation Trigger ===
+EmailId:    45ea9ffa-fd3f-4773-868b-5fef5840c4ed
+AnalysisId: 36c8f937-8c21-48d7-9b5f-3b05cd550b66
+
+[1] Inserting test Email...
+  ✓ Email inserted: Id=45ea9ffa-fd3f-4773-868b-5fef5840c4ed
+
+[2] Inserting AIAnalysis (Pending)...
+  ✓ AIAnalysis inserted: Id=36c8f937-8c21-48d7-9b5f-3b05cd550b66, State=Pending
+
+[3] Publishing AIProcessingRequestedMessage to RabbitMQ...
+  ✓ Published AIProcessingRequestedMessage for EmailId=45ea9ffa-fd3f-4773-868b-5fef5840c4ed
+
+=== Evidence Summary ===
+  EmailId:    45ea9ffa-fd3f-4773-868b-5fef5840c4ed
+  AnalysisId: 36c8f937-8c21-48d7-9b5f-3b05cd550b66
+  WorkspaceId: 21ebbc0b-586e-48f2-8a1d-92af61defcce
+
+Now watch AI Worker logs for:
+  'Received AIProcessingRequestedMessage for EmailId: 45ea9ffa-fd3f-4773-868b-5fef5840c4ed'
+  Then query DB: SELECT "ProcessingState", "Summary" FROM "AIAnalyses" WHERE "Id" = '36c8f937-8c21-48d7-9b5f-3b05cd550b66'

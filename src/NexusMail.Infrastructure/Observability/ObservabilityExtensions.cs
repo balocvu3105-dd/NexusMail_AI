@@ -26,7 +26,7 @@ public static class ObservabilityExtensions
                 tracing
                     .AddSource(CustomMetrics.ActivitySource.Name)
                     .AddSource("MassTransit")
-                    .SetSampler(new AlwaysOnSampler())
+                    .SetSampler(new TraceIdRatioBasedSampler(0.2))
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
@@ -35,10 +35,7 @@ public static class ObservabilityExtensions
                     {
                         options.RecordException = true;
                     })
-                    .AddEntityFrameworkCoreInstrumentation(options =>
-                    {
-                        options.SetDbStatementForText = true;
-                    })
+                    .AddEntityFrameworkCoreInstrumentation()
                     .AddNpgsql();
 
                 if (useOtlp)

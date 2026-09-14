@@ -19,7 +19,7 @@ public sealed class ForwardActionExecutor : IActionExecutor
         _emailProvider = emailProvider;
     }
 
-    public async Task<ActionResult> ExecuteAsync(string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
+    public async Task<ActionResult> ExecuteAsync(string idempotencyKey, string parametersJson, EvaluateRulesMessage context, CancellationToken cancellationToken = default)
     {
         string forwardTo = "";
         if (!string.IsNullOrWhiteSpace(parametersJson) && parametersJson != "[]" && parametersJson != "{}")
@@ -49,6 +49,7 @@ public sealed class ForwardActionExecutor : IActionExecutor
                 to: forwardTo,
                 subject: $"Fwd: Automated Forward",
                 body: $"This email was forwarded from NexusMail Automation.\nOriginal Email ID: {context.EmailId}",
+                idempotencyKey: idempotencyKey,
                 cancellationToken: cancellationToken
             );
             return ActionResult.Success;
@@ -63,10 +64,18 @@ public sealed class ForwardActionExecutor : IActionExecutor
             // Invalid states are permanent
             return ActionResult.PermanentFailure;
         }
+        catch (Exception ex) when (ex is System.Net.Http.HttpRequestException || 
+                                   ex is System.Net.Sockets.SocketException || 
+                                   ex is TimeoutException ||
+                                   ex is System.Net.Mail.SmtpException)
+        {
+            // Network failures are transient and safe to retry because we provide an idempotencyKey
+            return ActionResult.TransientFailure;
+        }
         catch (Exception ex)
         {
-            // If the provider fails with a network/SMTP issue, the outcome is UNKNOWN.
-            // The side-effect MAY have completed. Returning TransientFailure would cause an unsafe blind retry.
+            // Unclassified errors remain UNKNOWN.
+            // We must not blind-retry if we are unsure if the provider handled the side-effect.
             return ActionResult.Unknown;
         }
     }

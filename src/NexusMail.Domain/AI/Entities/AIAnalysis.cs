@@ -10,27 +10,20 @@ public class AIAnalysis : AggregateRoot
 {
     public Guid EmailId { get; private set; }
 
-    // Summary Capability
-    public AIProcessingStatus SummaryStatus { get; private set; }
-    public Guid? SummaryAttemptId { get; private set; }
-    public string Summary { get; private set; } = string.Empty;
-    public string? SummaryError { get; private set; }
+    // Consolidated Processing Capability (Classification, Priority, Summary, NeedsAttention)
+    public AIProcessingStatus ProcessingState { get; private set; }
+    public Guid? ProcessingAttemptId { get; private set; }
+    public DateTimeOffset? ProcessingStartedAt { get; private set; }
+    public string? ProcessingError { get; private set; }
 
-    // Priority Capability
-    public AIProcessingStatus PriorityStatus { get; private set; }
-    public Guid? PriorityAttemptId { get; private set; }
+    public string Summary { get; private set; } = string.Empty;
     public int PriorityScore { get; private set; }
     public string Priority { get; private set; } = string.Empty;
-    public string? PriorityError { get; private set; }
-
-    // Classification Capability
-    public AIProcessingStatus ClassificationStatus { get; private set; }
-    public Guid? ClassificationAttemptId { get; private set; }
     public string Category { get; private set; } = string.Empty;
     public string Language { get; private set; } = string.Empty;
     public double Confidence { get; private set; }
     public List<string> Tags { get; private set; } = new();
-    public string? ClassificationError { get; private set; }
+    public bool NeedsAttention { get; private set; }
 
     // Embedding Capability
     public AIProcessingStatus EmbeddingStatus { get; private set; }
@@ -46,103 +39,44 @@ public class AIAnalysis : AggregateRoot
         {
             Id = Guid.NewGuid(),
             EmailId = emailId,
-            SummaryStatus = AIProcessingStatus.Pending,
-            PriorityStatus = AIProcessingStatus.Pending,
-            ClassificationStatus = AIProcessingStatus.Pending,
+            ProcessingState = AIProcessingStatus.Pending,
             EmbeddingStatus = AIProcessingStatus.Pending
         };
     }
 
-    // --- SUMMARY ---
-    public bool StartSummary(Guid attemptId)
+    // --- UNIFIED PROCESSING ---
+    public bool StartProcessing(Guid attemptId)
     {
-        if (SummaryStatus == AIProcessingStatus.Succeeded || SummaryStatus == AIProcessingStatus.Processing)
+        if (ProcessingState == AIProcessingStatus.Succeeded)
             return false;
 
-        SummaryStatus = AIProcessingStatus.Processing;
-        SummaryAttemptId = attemptId;
-        SummaryError = null;
+        // Stale recovery: if Processing but started > 5 minutes ago, we can claim it
+        if (ProcessingState == AIProcessingStatus.Processing && ProcessingStartedAt.HasValue)
+        {
+            if (ProcessingStartedAt.Value > DateTimeOffset.UtcNow.AddMinutes(-5))
+            {
+                return false; // Still processing and not stale
+            }
+        }
+
+        ProcessingState = AIProcessingStatus.Processing;
+        ProcessingAttemptId = attemptId;
+        ProcessingStartedAt = DateTimeOffset.UtcNow;
+        ProcessingError = null;
         return true;
     }
 
-    public void CompleteSummary(Guid attemptId, string summary)
+    public void CompleteProcessing(Guid attemptId, string summary, int priorityScore, string priority, string category, double confidence, List<string>? tags, bool needsAttention)
     {
-        if (SummaryAttemptId != attemptId) return;
-        SummaryStatus = AIProcessingStatus.Succeeded;
+        if (ProcessingAttemptId != attemptId) return;
+        ProcessingState = AIProcessingStatus.Succeeded;
         Summary = summary;
-        CheckCompletion();
-    }
-
-    public void FailSummary(Guid attemptId, string error)
-    {
-        if (SummaryAttemptId != attemptId) return;
-        SummaryStatus = AIProcessingStatus.Failed;
-        SummaryError = error;
-        CheckCompletion();
-    }
-
-    public void ResetSummaryToPending(Guid attemptId)
-    {
-        if (SummaryAttemptId != attemptId) return;
-        SummaryStatus = AIProcessingStatus.Pending;
-        SummaryAttemptId = null;
-    }
-
-    // --- PRIORITY ---
-    public bool StartPriority(Guid attemptId)
-    {
-        if (PriorityStatus == AIProcessingStatus.Succeeded || PriorityStatus == AIProcessingStatus.Processing)
-            return false;
-
-        PriorityStatus = AIProcessingStatus.Processing;
-        PriorityAttemptId = attemptId;
-        PriorityError = null;
-        return true;
-    }
-
-    public void CompletePriority(Guid attemptId, int score, string priority)
-    {
-        if (PriorityAttemptId != attemptId) return;
-        PriorityStatus = AIProcessingStatus.Succeeded;
-        PriorityScore = score;
+        PriorityScore = priorityScore;
         Priority = priority;
-        CheckCompletion();
-    }
-
-    public void FailPriority(Guid attemptId, string error)
-    {
-        if (PriorityAttemptId != attemptId) return;
-        PriorityStatus = AIProcessingStatus.Failed;
-        PriorityError = error;
-        CheckCompletion();
-    }
-
-    public void ResetPriorityToPending(Guid attemptId)
-    {
-        if (PriorityAttemptId != attemptId) return;
-        PriorityStatus = AIProcessingStatus.Pending;
-        PriorityAttemptId = null;
-    }
-
-    // --- CLASSIFICATION ---
-    public bool StartClassification(Guid attemptId)
-    {
-        if (ClassificationStatus == AIProcessingStatus.Succeeded || ClassificationStatus == AIProcessingStatus.Processing)
-            return false;
-
-        ClassificationStatus = AIProcessingStatus.Processing;
-        ClassificationAttemptId = attemptId;
-        ClassificationError = null;
-        return true;
-    }
-
-    public void CompleteClassification(Guid attemptId, string category, double confidence, List<string>? tags = null)
-    {
-        if (ClassificationAttemptId != attemptId) return;
-        ClassificationStatus = AIProcessingStatus.Succeeded;
         Category = category;
         Confidence = confidence;
         if (tags != null) Tags = tags;
+        NeedsAttention = needsAttention;
 
         AddDomainEvent(new EmailAnalyzed
         {
@@ -156,19 +90,20 @@ public class AIAnalysis : AggregateRoot
         CheckCompletion();
     }
 
-    public void FailClassification(Guid attemptId, string error)
+    public void FailProcessing(Guid attemptId, string error)
     {
-        if (ClassificationAttemptId != attemptId) return;
-        ClassificationStatus = AIProcessingStatus.Failed;
-        ClassificationError = error;
+        if (ProcessingAttemptId != attemptId) return;
+        ProcessingState = AIProcessingStatus.Failed;
+        ProcessingError = error;
         CheckCompletion();
     }
 
-    public void ResetClassificationToPending(Guid attemptId)
+    public void ResetProcessingToPending(Guid attemptId)
     {
-        if (ClassificationAttemptId != attemptId) return;
-        ClassificationStatus = AIProcessingStatus.Pending;
-        ClassificationAttemptId = null;
+        if (ProcessingAttemptId != attemptId) return;
+        ProcessingState = AIProcessingStatus.Pending;
+        ProcessingAttemptId = null;
+        ProcessingStartedAt = null;
     }
 
     // --- EMBEDDING ---
@@ -211,9 +146,7 @@ public class AIAnalysis : AggregateRoot
 
         bool isTerminal(AIProcessingStatus status) => status == AIProcessingStatus.Succeeded || status == AIProcessingStatus.Failed;
 
-        if (isTerminal(SummaryStatus) &&
-            isTerminal(PriorityStatus) &&
-            isTerminal(ClassificationStatus) &&
+        if (isTerminal(ProcessingState) &&
             isTerminal(EmbeddingStatus))
         {
             IsCompletedEventPublished = true;
@@ -221,15 +154,15 @@ public class AIAnalysis : AggregateRoot
             AddDomainEvent(new EmailAIProcessingCompleted
             {
                 EmailId = EmailId,
-                SummarySucceeded = SummaryStatus == AIProcessingStatus.Succeeded,
-                PrioritySucceeded = PriorityStatus == AIProcessingStatus.Succeeded,
-                ClassificationSucceeded = ClassificationStatus == AIProcessingStatus.Succeeded,
+                SummarySucceeded = ProcessingState == AIProcessingStatus.Succeeded,
+                PrioritySucceeded = ProcessingState == AIProcessingStatus.Succeeded,
+                ClassificationSucceeded = ProcessingState == AIProcessingStatus.Succeeded,
                 EmbeddingSucceeded = EmbeddingStatus == AIProcessingStatus.Succeeded,
-                Summary = SummaryStatus == AIProcessingStatus.Succeeded ? Summary : null,
-                PriorityScore = PriorityStatus == AIProcessingStatus.Succeeded ? PriorityScore : null,
-                Category = ClassificationStatus == AIProcessingStatus.Succeeded ? Category : null,
-                Language = ClassificationStatus == AIProcessingStatus.Succeeded ? Language : null,
-                Tags = ClassificationStatus == AIProcessingStatus.Succeeded ? Tags : null
+                Summary = ProcessingState == AIProcessingStatus.Succeeded ? Summary : null,
+                PriorityScore = ProcessingState == AIProcessingStatus.Succeeded ? PriorityScore : null,
+                Category = ProcessingState == AIProcessingStatus.Succeeded ? Category : null,
+                Language = ProcessingState == AIProcessingStatus.Succeeded ? Language : null,
+                Tags = ProcessingState == AIProcessingStatus.Succeeded ? Tags : null
             });
         }
     }

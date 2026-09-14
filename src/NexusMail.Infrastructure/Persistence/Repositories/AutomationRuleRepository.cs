@@ -41,6 +41,13 @@ public sealed class AutomationRuleRepository : IAutomationRuleRepository
     public async Task UpdateRuleAsync(AutomationRule rule, CancellationToken cancellationToken = default)
     {
         _dbContext.AutomationRules.Update(rule);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new NexusMail.Domain.Exceptions.ConcurrencyException("The automation rule was modified by another user.", ex);
+        }
     }
 }

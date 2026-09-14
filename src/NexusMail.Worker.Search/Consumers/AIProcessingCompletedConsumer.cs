@@ -79,8 +79,16 @@ public class AIProcessingCompletedConsumer : IConsumer<AIProcessingCompletedMess
         var searchableText = $"{email.Subject} {email.Content} {summary} {tagsStr}";
         searchIndex.UpdateFullTextSearch(searchableText);
 
-        await _searchDb.SaveChangesAsync(context.CancellationToken);
-        _logger.LogInformation("Successfully indexed EmailId: {EmailId}", msg.EmailId);
+        try
+        {
+            await _searchDb.SaveChangesAsync(context.CancellationToken);
+            _logger.LogInformation("Successfully indexed EmailId: {EmailId}", msg.EmailId);
+        }
+        catch (DbUpdateException ex)
+        {
+            _logger.LogWarning(ex, "Concurrency issue when indexing EmailId: {EmailId}. A race condition occurred, retrying...", msg.EmailId);
+            throw; // MassTransit will retry the message, at which point FirstOrDefaultAsync will find it.
+        }
 
         // Publish SearchIndexedEvent
         await context.Publish(new SearchIndexedEvent

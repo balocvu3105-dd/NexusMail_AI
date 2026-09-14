@@ -31,7 +31,14 @@ builder.Services.AddScoped<IActionExecutor, LabelActionExecutor>();
 builder.Services.AddScoped<IActionExecutor, AutoReplyActionExecutor>();
 builder.Services.AddScoped<IActionExecutor, ForwardActionExecutor>();
 builder.Services.AddScoped<IActionExecutor, NotifyActionExecutor>();
+builder.Services.AddScoped<IActionExecutor, CallWebhookActionExecutor>();
 builder.Services.AddScoped<ActionExecutorFactory>();
+
+// HTTP Clients
+builder.Services.AddHttpClient("WebhookClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // MassTransit
 builder.Services.AddMassTransit(x =>

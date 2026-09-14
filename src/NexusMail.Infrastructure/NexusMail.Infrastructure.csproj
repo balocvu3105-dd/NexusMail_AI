@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\NexusMail.Application\NexusMail.Application.csproj" />
     <ProjectReference Include="..\NexusMail.Notification\NexusMail.Notification.csproj" />
+    <ProjectReference Include="..\NexusMail.Automation\NexusMail.Automation.csproj" />
   </ItemGroup>
 
   <ItemGroup>

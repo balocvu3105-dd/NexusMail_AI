@@ -21,7 +21,7 @@ namespace NexusMail.IntegrationTests
         public CustomWebApplicationFactory()
         {
             _dbContainer = new PostgreSqlBuilder()
-                .WithImage("postgres:15-alpine")
+                .WithImage("pgvector/pgvector:pg15")
                 .WithDatabase("nexusmail_test")
                 .WithUsername("postgres")
                 .WithPassword("postgres")
@@ -37,8 +37,13 @@ namespace NexusMail.IntegrationTests
         {
             await _dbContainer.StartAsync();
             using var scope = this.Services.CreateScope();
+            
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
             await db.Database.MigrateAsync();
+
+            var searchDb = scope.ServiceProvider.GetRequiredService<NexusMail.Infrastructure.Search.Persistence.SearchDbContext>();
+            await searchDb.Database.MigrateAsync();
         }
 
         public async Task DisposeAsync()
@@ -115,7 +120,7 @@ namespace NexusMail.IntegrationTests
 
                 services.AddDbContext<NexusMail.Infrastructure.Search.Persistence.SearchDbContext>(opts =>
                 {
-                    opts.UseInMemoryDatabase("TestSearchDb");
+                    opts.UseNpgsql(_dbContainer.GetConnectionString(), o => o.UseVector());
                 });
 
                 // Mock IAIModelProviderFactory for FakeAIModelProvider

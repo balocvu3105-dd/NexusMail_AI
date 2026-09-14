@@ -20,4 +20,5 @@ public sealed record EmailAIProcessingCompleted : EventBase
     public string? Category { get; init; }
     public string? Language { get; init; }
     public List<string>? Tags { get; init; }
+    public float[]? EmbeddingVector { get; init; }
 }

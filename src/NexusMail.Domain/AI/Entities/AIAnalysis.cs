@@ -118,11 +118,11 @@ public class AIAnalysis : AggregateRoot
         return true;
     }
 
-    public void CompleteEmbedding(Guid attemptId)
+    public void CompleteEmbedding(Guid attemptId, float[]? embeddingVector = null)
     {
         if (EmbeddingAttemptId != attemptId) return;
         EmbeddingStatus = AIProcessingStatus.Succeeded;
-        CheckCompletion();
+        CheckCompletion(embeddingVector);
     }
 
     public void FailEmbedding(Guid attemptId, string error)
@@ -140,7 +140,7 @@ public class AIAnalysis : AggregateRoot
         EmbeddingAttemptId = null;
     }
 
-    private void CheckCompletion()
+    private void CheckCompletion(float[]? embeddingVector = null)
     {
         if (IsCompletedEventPublished) return;
 
@@ -162,7 +162,8 @@ public class AIAnalysis : AggregateRoot
                 PriorityScore = ProcessingState == AIProcessingStatus.Succeeded ? PriorityScore : null,
                 Category = ProcessingState == AIProcessingStatus.Succeeded ? Category : null,
                 Language = ProcessingState == AIProcessingStatus.Succeeded ? Language : null,
-                Tags = ProcessingState == AIProcessingStatus.Succeeded ? Tags : null
+                Tags = ProcessingState == AIProcessingStatus.Succeeded ? Tags : null,
+                EmbeddingVector = embeddingVector
             });
         }
     }

@@ -27,6 +27,11 @@ public interface IAIModelProvider
     Task<AICompletionResponse> CompleteAsync(AICompletionRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Send a streaming completion request.
+    /// </summary>
+    IAsyncEnumerable<string> CompleteStreamAsync(AICompletionRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Generate a vector embedding for the given text.
     /// </summary>
     /// <exception cref="NotSupportedException">When <see cref="SupportsEmbedding"/> is false.</exception>

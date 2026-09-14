@@ -117,7 +117,7 @@ public class PipelineIntegrationTests : IntegrationTestBase
         await dispatcher.DispatchUnprocessedMessagesAsync();
 
         // Verify that the domain event handler published messages to the bus
-        var hasPublished = await harness.Published.Any<NexusMail.Contracts.AI.SummaryRequestedMessage>();
+        var hasPublished = await harness.Published.Any<NexusMail.Contracts.AI.AIProcessingRequestedMessage>();
         hasPublished.Should().BeTrue("Expected downstream contract messages to be published");
     }
 

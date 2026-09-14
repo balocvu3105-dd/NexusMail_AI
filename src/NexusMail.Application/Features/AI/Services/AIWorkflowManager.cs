@@ -127,9 +127,10 @@ public sealed class AIWorkflowManager : IAIWorkflowManager
 
         try
         {
-            var embeddingResult = await _embeddingService.GenerateEmbeddingAsync(email.Content, cancellationToken);
+            var embeddingContent = $"Subject: {email.Subject}\n\n{email.Content}";
+            var embeddingResult = await _embeddingService.GenerateEmbeddingAsync(embeddingContent, cancellationToken);
             if (embeddingResult.IsSuccess)
-                analysis.CompleteEmbedding(attemptId);
+                analysis.CompleteEmbedding(attemptId, embeddingResult.Value);
             else
                 analysis.FailEmbedding(attemptId, embeddingResult.Error.Description);
 

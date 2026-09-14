@@ -31,6 +31,7 @@ public static class DependencyInjection
 
         services.AddScoped<NexusMail.Application.Features.Search.Services.ISearchReindexerService, NexusMail.Application.Features.Search.Services.SearchReindexerService>();
         services.AddScoped<NexusMail.Application.Features.AI.Services.IAIWorkflowManager, NexusMail.Application.Features.AI.Services.AIWorkflowManager>();
+        services.AddScoped<NexusMail.Application.Abstractions.Copilot.ICopilotOrchestrator, NexusMail.Application.Features.Copilot.CopilotOrchestrator>();
 
         return services;
     }

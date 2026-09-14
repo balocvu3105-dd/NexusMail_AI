@@ -18,6 +18,9 @@ public sealed class ClaudeModelProvider : IAIModelProvider
     public Task<AICompletionResponse> CompleteAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Claude provider — Sprint 5.");
 
+    public IAsyncEnumerable<string> CompleteStreamAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("Claude provider stream — Sprint 5.");
+
     public Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Claude does not support native embeddings. Use OpenAI or Gemini for embeddings.");
 }
@@ -35,6 +38,9 @@ public sealed class GeminiModelProvider : IAIModelProvider
 
     public Task<AICompletionResponse> CompleteAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Gemini provider — Sprint 5.");
+
+    public IAsyncEnumerable<string> CompleteStreamAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("Gemini provider stream — Sprint 5.");
 
     public Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Gemini embedding — Sprint 5.");
@@ -54,6 +60,9 @@ public sealed class OllamaModelProvider : IAIModelProvider
 
     public Task<AICompletionResponse> CompleteAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Ollama provider — Sprint 5.");
+
+    public IAsyncEnumerable<string> CompleteStreamAsync(AICompletionRequest request, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException("Ollama provider stream — Sprint 5.");
 
     public Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
         => throw new NotImplementedException("Ollama embedding (nomic-embed-text) — Sprint 5.");

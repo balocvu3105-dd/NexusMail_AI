@@ -9,6 +9,7 @@ using NexusMail.API.Endpoints.Email;
 using NexusMail.API.Endpoints.Identity;
 using NexusMail.API.Endpoints.Workspace;
 using NexusMail.API.Endpoints.Operations;
+using NexusMail.API.Endpoints.Copilot;
 using NexusMail.API.Endpoints.Notification;
 using NexusMail.API.Hubs;
 using NexusMail.API.Middleware;
@@ -185,6 +186,7 @@ versionedGroup.MapAutomationEndpoints();
 versionedGroup.MapOperationsEndpoints();
 versionedGroup.MapNotificationEndpoints();
 versionedGroup.MapOAuthEndpoints();
+versionedGroup.MapCopilotEndpoints();
 
 app.MapHub<NotificationHub>("/hub/notifications");
 

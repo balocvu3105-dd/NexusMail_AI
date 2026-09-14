@@ -139,6 +139,58 @@ public sealed class OpenAIModelProvider : IAIModelProvider
         }
     }
 
+    public async IAsyncEnumerable<string> CompleteStreamAsync(AICompletionRequest request, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var messages = new List<ChatMessage>();
+
+        if (!string.IsNullOrWhiteSpace(request.SystemPrompt))
+        {
+            messages.Add(new SystemChatMessage(request.SystemPrompt));
+        }
+
+        foreach (var msg in request.Messages)
+        {
+            ChatMessage chatMsg = msg.Role switch
+            {
+                AIRole.System => new SystemChatMessage(msg.Content),
+                AIRole.Assistant => new AssistantChatMessage(msg.Content),
+                _ => new UserChatMessage(msg.Content)
+            };
+            messages.Add(chatMsg);
+        }
+
+        var options = new ChatCompletionOptions
+        {
+            Temperature = (float)request.Temperature,
+            MaxOutputTokenCount = request.MaxTokens
+        };
+
+        if (request.ResponseFormat == AIResponseFormat.Json)
+        {
+            if (!string.IsNullOrWhiteSpace(request.JsonSchema))
+            {
+                options.ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                    jsonSchemaFormatName: "structured_output",
+                    jsonSchema: BinaryData.FromString(request.JsonSchema),
+                    jsonSchemaIsStrict: true);
+            }
+            else
+            {
+                options.ResponseFormat = ChatResponseFormat.CreateJsonObjectFormat();
+            }
+        }
+
+        var responseStream = _chatClient.CompleteChatStreamingAsync(messages, options, cancellationToken);
+        
+        await foreach (var update in responseStream)
+        {
+            if (update.ContentUpdate != null && update.ContentUpdate.Count > 0)
+            {
+                yield return update.ContentUpdate[0].Text;
+            }
+        }
+    }
+
     public async Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken = default)
     {
         try

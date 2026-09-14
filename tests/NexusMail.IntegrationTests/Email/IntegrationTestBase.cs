@@ -31,7 +31,7 @@ public class IntegrationTestBase : IAsyncLifetime
     public IntegrationTestBase()
     {
         _dbContainer = new PostgreSqlBuilder()
-            .WithImage("postgres:15-alpine")
+            .WithImage("pgvector/pgvector:pg15")
             .WithDatabase("nexusmail_test")
             .WithUsername("postgres")
             .WithPassword("postgres")
@@ -90,6 +90,7 @@ public class IntegrationTestBase : IAsyncLifetime
         // Apply migrations
         Scope = ServiceProvider.CreateScope();
         DbContext = Scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await DbContext.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS vector;");
         await DbContext.Database.MigrateAsync();
     }
 

@@ -138,9 +138,20 @@ public static class DependencyInjection
         services.AddScoped<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>();
         services.AddScoped<IAIProcessingService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
         services.AddScoped<IEmbeddingService>(sp => sp.GetRequiredService<NexusMail.Infrastructure.AI.Services.OpenAILanguageService>());
+        services.AddScoped<NexusMail.Application.Abstractions.Copilot.ICopilotLanguageService, NexusMail.Infrastructure.AI.Services.CopilotLanguageService>();
 
         // Dummy Kernel to fix "No service for type 'Microsoft.SemanticKernel.Kernel' has been registered"
         services.AddScoped<Microsoft.SemanticKernel.Kernel>(sp => null!);
+
+        // ─── Copilot Actions ───────────────────────────────────────────────
+        services.AddMemoryCache(); // For IdempotencyCache
+        services.AddScoped<NexusMail.Application.Features.Copilot.ICopilotActionService, NexusMail.Infrastructure.AI.Services.CopilotActionService>();
+        
+        // Register ActionExecutors (for Copilot to use via Factory)
+        services.AddScoped<NexusMail.Automation.Actions.IActionExecutor, NexusMail.Automation.Actions.LabelActionExecutor>();
+        services.AddScoped<NexusMail.Automation.Actions.IActionExecutor, NexusMail.Automation.Actions.CreateTaskActionExecutor>();
+        // Only Tier 1 registered for Copilot in API layer
+        services.AddScoped<NexusMail.Automation.Actions.ActionExecutorFactory>();
 
         // ─── Identity ──────────────────────────────────────────────────────
         services.AddOptions<NexusMail.Infrastructure.Identity.JwtSettings>()

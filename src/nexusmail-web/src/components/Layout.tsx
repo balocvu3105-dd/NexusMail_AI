@@ -5,6 +5,8 @@ import { useAuthStore, getRefreshToken } from '../stores/authStore';
 import { apiClient } from '../api/client';
 import type { LogoutRequest } from '../types/auth';
 import { NotificationBell } from './NotificationBell';
+import { CopilotToggleButton } from './copilot/CopilotToggleButton';
+import { CopilotDrawer } from './copilot/CopilotDrawer';
 import { useNotificationStore } from '../stores/notificationStore';
 import styles from './Layout.module.css';
 
@@ -112,7 +114,8 @@ export const Layout: React.FC = () => {
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center', gap: '12px' }}>
+            <CopilotToggleButton />
             <NotificationBell />
           </div>
           <button onClick={handleLogout} className={styles.logoutBtn}>
@@ -124,6 +127,7 @@ export const Layout: React.FC = () => {
       <main className={styles.main}>
         <Outlet />
       </main>
+      <CopilotDrawer />
     </div>
   );
 };

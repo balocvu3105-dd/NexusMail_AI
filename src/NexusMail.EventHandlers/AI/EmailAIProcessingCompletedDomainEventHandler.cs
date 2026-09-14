@@ -47,7 +47,7 @@ public sealed class EmailAIProcessingCompletedDomainEventHandler : INotification
                 Succeeded = notification.ClassificationSucceeded,
                 Value = notification.ClassificationSucceeded ? new ClassificationPayload { Category = notification.Category ?? string.Empty, Language = notification.Language ?? string.Empty, Tags = notification.Tags ?? new System.Collections.Generic.List<string>() } : null
             },
-            EmbeddingResult = new CapabilityResult<float[]> { Succeeded = notification.EmbeddingSucceeded, Value = null } // Embedding value not passed in DomainEvent
+            EmbeddingResult = new CapabilityResult<float[]> { Succeeded = notification.EmbeddingSucceeded, Value = notification.EmbeddingVector }
         };
 
         await _publishEndpoint.Publish(integrationMessage, cancellationToken);
